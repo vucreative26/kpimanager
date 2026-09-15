@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Flow KPI</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<section id="authPanel" class="auth-panel"><form id="loginForm" class="dialog"><h1>Flow KPI</h1><p>Dùng cùng một tài khoản trên điện thoại và hai laptop.</p><label class="field">Email<input id="email" type="email" autocomplete="username" required></label><label class="field">Mật khẩu<input id="password" type="password" autocomplete="current-password" required></label><button id="loginButton" class="btn primary">Đăng nhập</button><p id="authMessage" role="status"></p></form></section>
+<div id="startupStatus" role="status" style="position:fixed;left:16px;bottom:16px;z-index:20;max-width:calc(100vw - 32px);padding:12px 16px;background:#fff4ce;color:#463500;border:1px solid #d5b956;border-radius:8px;font:14px Arial">Đang khởi động Flow KPI…</div>
+<div class="app" id="application" hidden>
+<aside class="side">
+<div class="brand">Flow KPI<small>Personal work system</small>
+</div>
+<button class="nav active" data-v="dashboard">⌂ &nbsp; Tổng quan</button>
+<button class="nav" data-v="kpi">◫ &nbsp; KPI công việc</button>
+<button class="nav" data-v="calendar">□ &nbsp; Lịch & nghỉ phép</button>
+<button class="nav" data-v="report">◔ &nbsp; Báo cáo</button>
+<button class="nav" data-v="urgent">! &nbsp; Việc gấp</button>
+<button id="logout" class="nav">Đăng xuất</button><button id="sync" class="sync">↻ Đồng bộ dữ liệu</button>
+</aside>
+<main class="main">
+<header class="head">
+<div>
+<h1 id="title">Tổng quan KPI</h1>
+<p id="sub">Bức tranh công việc trong tháng</p>
+</div>
+<div class="tools">
+<div class="period">
+<button id="prev">‹</button>
+<input id="period" type="month">
+<button id="next">›</button>
+</div>
+<button id="leaveTop" class="btn ghost">+ Nghỉ phép</button>
+<button id="urgentTop" class="btn danger">+ Việc gấp</button>
+<button id="kpiTop" class="btn primary">+ KPI mới</button>
+</div>
+</header>
+<section id="dashboard" class="view active">
+<div id="metrics" class="metrics">
+</div>
+<div class="grid g3">
+<div class="card list">
+<h2>Việc cần làm hôm nay</h2>
+<div id="today">
+</div>
+</div>
+<div class="card list">
+<h2>Cảnh báo quá hạn</h2>
+<div id="late">
+</div>
+</div>
+<div class="card list">
+<h2>Lịch cá nhân sắp tới</h2>
+<div id="leaves">
+</div>
+</div>
+</div>
+<div class="grid g2">
+<div class="card">
+<h2>Tiến độ KPI</h2>
+<div id="progress">
+</div>
+</div>
+<div class="card">
+<h2>Sức khỏe tiến độ</h2>
+<div id="health">
+</div>
+</div>
+</div>
+</section>
+<section id="kpi" class="view">
+<div class="filter">
+<input id="search" class="search" placeholder="Tìm KPI, sub-task, đầu việc...">
+<span id="count" class="small">
+</span>
+<button id="kpiAdd" class="btn primary">+ KPI mới</button>
+</div>
+<div class="kpi-layout">
+<div id="tree" class="tree">
+</div>
+<aside class="card chat">
+<div class="chathead">
+<h2>✦ Gemini Chat</h2>
+<button id="apiKey" class="mini">Cài API</button>
+</div>
+<div id="gstatus" class="small">Đang kiểm tra...</div>
+<div id="msgs" class="messages">
+<div class="bubble">Chọn một sub-task rồi bấm <b>Hỏi Gemini</b>, hoặc mô tả công việc. Gemini sẽ gợi ý 4–6 đầu mục nhỏ để bạn tự thêm vào checklist.</div>
+</div>
+<div class="chips">
+<button class="chip" data-p="Hãy đề xuất 4–6 đầu mục nhỏ để hoàn thành sub-task này.">Gợi ý checklist</button>
+<button class="chip" data-p="Hãy lập kế hoạch thực hiện và thứ tự ưu tiên cho công việc này.">Lập kế hoạch</button>
+</div>
+<div class="chatbox">
+<textarea id="chatText" placeholder="Hỏi Gemini về công việc...">
+</textarea>
+<button id="chatSend" class="btn primary">Gửi</button>
+</div>
+</aside>
+</div>
+</section>
+<section id="calendar" class="view">
+<div class="filter">
+<span class="small">Lịch công việc, deadline và nghỉ phép.</span>
+<button id="leaveAdd" class="btn primary">+ Thêm nghỉ phép</button>
+</div>
+<div class="cal-layout">
+<div class="card">
+<h2 id="calTitle">
+</h2>
+<div id="cal" class="cal">
+</div>
+</div>
+<aside class="card">
+<h2 id="dateTitle">Công việc trong ngày</h2>
+<div id="dateItems">
+</div>
+<textarea id="note" class="note" placeholder="Ghi chú nhanh...">
+</textarea>
+<button id="noteSave" class="btn primary">Lưu ghi chú</button>
+</aside>
+</div>
+</section>
+<section id="report" class="view">
+<div class="filter">
+<span id="summary" class="small">
+</span>
+<button id="csv" class="btn ghost">Xuất CSV</button>
+</div>
+<div class="report">
+<div class="card">
+<h2>Đã hoàn thành</h2>
+<div id="doneList">
+</div>
+</div>
+<div class="card">
+<h2>Chưa hoàn thành / cần xử lý</h2>
+<div id="pendingList">
+</div>
+</div>
+</div>
+</section>
+<section id="urgent" class="view">
+<div class="filter">
+<span class="small">Yêu cầu phát sinh được tách riêng khỏi KPI.</span>
+<button id="urgentAdd" class="btn primary">+ Việc gấp</button>
+</div>
+<div id="urgentGrid" class="urgentgrid">
+</div>
+</section>
+</main>
+</div>
+<div id="modal">
+</div>
+<div id="toast">
+</div><script type="module" src="./app.js"></script>
+</body>
+</html>
