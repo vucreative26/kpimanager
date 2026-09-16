@@ -44,7 +44,7 @@ async function mutate(table,action,id,patch,period){
   snapshot=restrict(normalize(snapshot),period);
   return clone(snapshot);
 }
-const types={Kpi:'kpis',SubTask:'subTasks',CheckItem:'checkItems',UrgentTask:'urgentTasks',Leave:'leaves',ResourceLink:'resourceLinks'};
+const types={Kpi:'kpis',SubTask:'subTasks',CheckItem:'checkItems',UrgentTask:'urgentTasks',Leave:'leaves',ResourceLink:'resourceLinks',DailyNote:'dailyNotes'};
 function geminiSettings(){try{return JSON.parse(localStorage.getItem('flow-gemini:'+userId)||'{}');}catch{return {};}}
 async function gemini(name,args){
   let settings=geminiSettings();
@@ -90,7 +90,7 @@ function getInitialDemoData() {
       { date: currentDate, content: 'Kiểm tra lại toàn bộ slide và giáo án đào tạo online.' }
     ],
     leaves: [
-      { id: 'lea-1', type: 'Nghỉ phép', startDate: currentDate, endDate: currentDate, note: 'Nghỉ cá nhân' }
+      { id: 'lea-1', type: 'Nghỉ phép', startDate: currentDate, endDate: currentDate, startTime: '08:30', endTime: '12:00', note: '[08:30 - 12:00] Nghỉ cá nhân buổi sáng' }
     ],
     resourceLinks: [
       { id: 'lnk-1', entityType: 'KPI', entityId: 'kpi-1', label: 'Tài liệu Mesotherapy', url: 'https://drive.google.com' }
@@ -186,6 +186,119 @@ export const backend = {
     }
   },
 
+  async verifyPassword(password) {
+    if (!password) throw new Error('Vui lòng nhập mật khẩu xác nhận.');
+    if (isDemoMode) {
+      if (password !== 'demo' && password !== '123456') {
+        throw new Error('Mật khẩu không chính xác! (Mật khẩu demo là: demo)');
+      }
+      return true;
+    }
+    if (!client) throw new Error('Chưa kết nối Supabase.');
+    const { data: { user } } = await client.auth.getUser();
+    if (!user || !user.email) throw new Error('Không tìm thấy thông tin tài khoản đăng nhập.');
+    const { error } = await client.auth.signInWithPassword({
+      email: user.email,
+      password: password
+    });
+    if (error) throw new Error('Mật khẩu xác nhận không chính xác! Thao tác bị hủy.');
+    return true;
+  },
+
+  async exportAllData() {
+    if (isDemoMode) {
+      return clone(loadDemoData());
+    }
+    if (!client || !userId) throw new Error('Vui lòng đăng nhập để xuất dữ liệu.');
+    const [kpis, subTasks, checkItems, urgentTasks, dailyNotes, leaves, resourceLinks] = await Promise.all([
+      client.from('flow_kpis').select('*').order('period', { ascending: false }),
+      client.from('flow_sub_tasks').select('*'),
+      client.from('flow_check_items').select('*'),
+      client.from('flow_urgent_tasks').select('*').order('createdAt', { ascending: false }),
+      client.from('flow_daily_notes').select('*').order('date', { ascending: false }),
+      client.from('flow_leaves').select('*').order('startDate', { ascending: false }),
+      client.from('flow_resource_links').select('*')
+    ]);
+    const err = kpis.error || subTasks.error || checkItems.error || urgentTasks.error || dailyNotes.error || leaves.error || resourceLinks.error;
+    if (err) throw new Error(err.message);
+    return {
+      kpis: kpis.data || [],
+      subTasks: subTasks.data || [],
+      checkItems: checkItems.data || [],
+      urgentTasks: urgentTasks.data || [],
+      dailyNotes: dailyNotes.data || [],
+      leaves: leaves.data || [],
+      resourceLinks: resourceLinks.data || []
+    };
+  },
+
+  async deleteScope(scope, target, period) {
+    if (isDemoMode) {
+      const data = loadDemoData();
+      if (scope === 'month') {
+        const m = target;
+        const kpiIdsToDelete = data.kpis.filter(k => k.period === m).map(k => k.id);
+        const subIdsToDelete = data.subTasks.filter(s => kpiIdsToDelete.includes(s.kpiId)).map(s => s.id);
+        data.kpis = data.kpis.filter(k => k.period !== m);
+        data.subTasks = data.subTasks.filter(s => !kpiIdsToDelete.includes(s.kpiId));
+        data.checkItems = data.checkItems.filter(c => !subIdsToDelete.includes(c.subTaskId));
+        data.urgentTasks = data.urgentTasks.filter(u => !(u.dueDate && u.dueDate.startsWith(m)));
+        data.dailyNotes = data.dailyNotes.filter(n => !(n.date && n.date.startsWith(m)));
+        data.leaves = data.leaves.filter(l => !(l.startDate && l.startDate.slice(0, 7) <= m && l.endDate && l.endDate.slice(0, 7) >= m));
+      } else if (scope === 'day') {
+        const d = target;
+        data.dailyNotes = data.dailyNotes.filter(n => n.date !== d);
+        data.urgentTasks = data.urgentTasks.filter(u => u.dueDate !== d);
+        data.leaves = data.leaves.filter(l => !(l.startDate <= d && l.endDate >= d));
+        data.checkItems = data.checkItems.filter(c => c.dueDate !== d);
+      }
+      demoData = data;
+      saveDemoData();
+      data.period = period;
+      return clone(data);
+    }
+    
+    if (!client || !userId) throw new Error('Vui lòng đăng nhập.');
+    if (scope === 'month') {
+      const m = target;
+      const { data: kpis } = await client.from('flow_kpis').select('id').eq('period', m);
+      for (const k of (kpis || [])) {
+        await mutate('kpis', 'delete', k.id, {}, period);
+      }
+      const { data: notes } = await client.from('flow_daily_notes').select('id,date').gte('date', m + '-01').lt('date', m + '-32');
+      for (const n of (notes || [])) {
+        await mutate('dailyNotes', 'delete', n.id, {}, period);
+      }
+      const { data: urgents } = await client.from('flow_urgent_tasks').select('id,dueDate').gte('dueDate', m + '-01').lt('dueDate', m + '-32');
+      for (const u of (urgents || [])) {
+        await mutate('urgentTasks', 'delete', u.id, {}, period);
+      }
+      const { data: leaves } = await client.from('flow_leaves').select('id,startDate,endDate').lte('startDate', m + '-31').gte('endDate', m + '-01');
+      for (const l of (leaves || [])) {
+        await mutate('leaves', 'delete', l.id, {}, period);
+      }
+    } else if (scope === 'day') {
+      const d = target;
+      const { data: notes } = await client.from('flow_daily_notes').select('id').eq('date', d);
+      for (const n of (notes || [])) {
+        await mutate('dailyNotes', 'delete', n.id, {}, period);
+      }
+      const { data: urgents } = await client.from('flow_urgent_tasks').select('id').eq('dueDate', d);
+      for (const u of (urgents || [])) {
+        await mutate('urgentTasks', 'delete', u.id, {}, period);
+      }
+      const { data: leaves } = await client.from('flow_leaves').select('id').lte('startDate', d).gte('endDate', d);
+      for (const l of (leaves || [])) {
+        await mutate('leaves', 'delete', l.id, {}, period);
+      }
+      const { data: checks } = await client.from('flow_check_items').select('id').eq('dueDate', d);
+      for (const c of (checks || [])) {
+        await mutate('checkItems', 'delete', c.id, {}, period);
+      }
+    }
+    return load(period);
+  },
+
   async changed() {
     if (isDemoMode) return false;
     return snapshot && String(await rpc('flow_revision')) !== String(snapshot.revision);
@@ -238,6 +351,13 @@ export const backend = {
         data.urgentTasks.push({ id: 'urg-' + Date.now(), title: args[0].title, dueDate: args[0].dueDate, kpiGroup: args[0].kpiGroup || 'Đột xuất', status: 'Chưa làm' });
       } else if (name === 'apiAddLeave') {
         data.leaves.push({ id: 'lea-' + Date.now(), ...args[0] });
+      } else if (name.startsWith('apiUpdate')) {
+        const type = name.replace('apiUpdate', '');
+        const tableKey = types[type] || (type === 'Leave' ? 'leaves' : null);
+        if (tableKey && data[tableKey]) {
+          const item = data[tableKey].find(x => x.id === args[0]);
+          if (item) Object.assign(item, args[1]);
+        }
       } else if (name.startsWith('apiDelete')) {
         const id = args[0];
         if (name === 'apiDeleteKpi') {
