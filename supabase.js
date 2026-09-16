@@ -63,30 +63,216 @@ async function gemini(name,args){
   const answer=result.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('');
   if(!answer)throw Error('Gemini chưa trả về nội dung.');return {answer};
 }
-export const backend={
-  async initialize(onSession){
-    if(!/^https:\/\//.test(config.supabaseUrl)||config.supabaseUrl.includes('YOUR_PROJECT')||!config.supabaseKey||config.supabaseKey.includes('YOUR_'))throw Error('Chưa cấu hình Supabase. Mở config.js và điền Project URL cùng publishable key, sau đó tải lại trang.');
-    const {createClient}=await import('https://esm.sh/@supabase/supabase-js@2.57.4');
-    client=createClient(config.supabaseUrl,config.supabaseKey);
-    function update(session){const next=session?.user.id||null;if(next===userId)return;userId=next;generation++;snapshot=null;setTimeout(()=>{Promise.resolve(onSession(session)).catch(error=>console.error(error));},0);}
-    client.auth.onAuthStateChange((_event,session)=>update(session));
-    const {data,error}=await client.auth.getSession();if(error)throw error;update(data.session);
-  },
-  async signIn(email,password){const {error}=await client.auth.signInWithPassword({email:email.trim(),password});if(error)throw error;},
-  async signOut(){const {error}=await client.auth.signOut({scope:'local'});if(error)throw error;},
-  async changed(){return snapshot&&String(await rpc('flow_revision'))!==String(snapshot.revision);},
-  async call(name,args,period){
-    if(name.includes('Gemini'))return gemini(name,args);
-    if(name==='getSystemData')return load(period);
-    if(name==='apiToggleCheckItem')return mutate('checkItems','update',args[0],{done:args[1]},period);
-    if(name==='apiSaveDailyNote')return mutate('dailyNotes','upsert',args[0],{date:args[0],content:args[1]},period);
-    const match=/^api(Add|Update|Delete)(Kpi|SubTask|CheckItem|UrgentTask|Leave|ResourceLink)$/.exec(name);
-    if(!match)throw Error('Thao tác chưa được hỗ trợ: '+name);
-    const [,action,type]=match;let patch=args[1],id=args[0];
-    if(action==='Add'){
-      id=null;
-      patch=type==='Kpi'?{title:args[0],period:args[1],weight:Number(args[2])}:type==='SubTask'?{kpiId:args[0],title:args[1],dueDate:args[2]}:type==='CheckItem'?{subTaskId:args[0],title:args[1],dueDate:args[2]}:args[0];
+function getInitialDemoData() {
+  const currentPeriod = new Date().toISOString().slice(0, 7);
+  const currentDate = new Date().toISOString().slice(0, 10);
+  return {
+    kpis: [
+      { id: 'kpi-1', title: '01/ ĐÀO TẠO ĐẠI LÝ', period: currentPeriod, weight: 40, progress: 20, note: '', driveLink: '' },
+      { id: 'kpi-2', title: '02/ ĐÀO TẠO NỘI BỘ', period: currentPeriod, weight: 30, progress: 0, note: '', driveLink: '' },
+      { id: 'kpi-3', title: '03/ TRAINER LAMOUR', period: currentPeriod, weight: 30, progress: 0, note: '', driveLink: '' }
+    ],
+    subTasks: [
+      { id: 'sub-1', kpiId: 'kpi-1', title: 'Ứng dụng Liệu trình Mesotherapy không kim MesoFiller Pro trẻ hóa da toàn diện vùng mặt & Liệu trình TEG Some kết hợp Laser ánh sáng điều trị mụn', dueDate: currentDate, progress: 20, status: 'Đang làm', driveLink: '' }
+    ],
+    checkItems: [
+      { id: 'chk-1', subTaskId: 'sub-1', title: 'Chuẩn bị tài liệu', dueDate: currentDate, done: true, note: '' },
+      { id: 'chk-2', subTaskId: 'sub-1', title: 'Sale báo số lượng khách', dueDate: currentDate, done: false, note: '' },
+      { id: 'chk-3', subTaskId: 'sub-1', title: 'Đào tạo lớp Online', dueDate: currentDate, done: false, note: '' },
+      { id: 'chk-4', subTaskId: 'sub-1', title: 'Ghi nhận số lượng khách', dueDate: currentDate, done: false, note: '' },
+      { id: 'chk-5', subTaskId: 'sub-1', title: 'Upload video lên Kho dữ liệu', dueDate: currentDate, done: false, note: '' }
+    ],
+    urgentTasks: [
+      { id: 'urg-1', title: 'Chuẩn bị tài liệu họp ban điều hành', dueDate: currentDate, kpiGroup: 'Đào tạo', status: 'Đang làm' },
+      { id: 'urg-2', title: 'Hỗ trợ kỹ thuật sự kiện ra mắt', dueDate: currentDate, kpiGroup: 'Đột xuất', status: 'Chưa làm' }
+    ],
+    dailyNotes: [
+      { date: currentDate, content: 'Kiểm tra lại toàn bộ slide và giáo án đào tạo online.' }
+    ],
+    leaves: [
+      { id: 'lea-1', type: 'Nghỉ phép', startDate: currentDate, endDate: currentDate, note: 'Nghỉ cá nhân' }
+    ],
+    resourceLinks: [
+      { id: 'lnk-1', entityType: 'KPI', entityId: 'kpi-1', label: 'Tài liệu Mesotherapy', url: 'https://drive.google.com' }
+    ]
+  };
+}
+
+let isDemoMode = false;
+let demoData = null;
+let sessionCallback = null;
+
+function loadDemoData() {
+  if (!demoData) {
+    try {
+      const stored = localStorage.getItem('flow_demo_data');
+      demoData = stored ? JSON.parse(stored) : getInitialDemoData();
+    } catch {
+      demoData = getInitialDemoData();
     }
-    return mutate(types[type],action.toLowerCase(),id,patch,period);
+  }
+  return clone(demoData);
+}
+
+function saveDemoData() {
+  try {
+    localStorage.setItem('flow_demo_data', JSON.stringify(demoData));
+  } catch {}
+}
+
+export const backend = {
+  async initialize(onSession) {
+    sessionCallback = onSession;
+    const isConfigured = /^https:\/\//.test(config.supabaseUrl) && !config.supabaseUrl.includes('YOUR_PROJECT') && config.supabaseKey && !config.supabaseKey.includes('YOUR_');
+    
+    if (localStorage.getItem('flow_demo_user') === '1' || !isConfigured) {
+      if (localStorage.getItem('flow_demo_user') === '1') {
+        isDemoMode = true;
+        userId = 'demo-user-id';
+        demoData = loadDemoData();
+        setTimeout(() => onSession({ user: { id: userId, email: 'demo@flowkpi.local' } }), 0);
+      } else {
+        setTimeout(() => onSession(null), 0);
+      }
+      return;
+    }
+
+    try {
+      const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.57.4');
+      client = createClient(config.supabaseUrl, config.supabaseKey);
+      function update(session) {
+        const next = session?.user.id || null;
+        if (next === userId) return;
+        userId = next;
+        generation++;
+        snapshot = null;
+        setTimeout(() => { Promise.resolve(onSession(session)).catch(err => console.error(err)); }, 0);
+      }
+      client.auth.onAuthStateChange((_event, session) => update(session));
+      const { data, error } = await client.auth.getSession();
+      if (error) throw error;
+      update(data.session);
+    } catch (err) {
+      console.warn('Lỗi kết nối Supabase, chuyển sang chế độ dự phòng:', err.message);
+      onSession(null);
+    }
+  },
+
+  async signIn(email, password) {
+    const isConfigured = client && /^https:\/\//.test(config.supabaseUrl) && !config.supabaseUrl.includes('YOUR_PROJECT');
+    if (!isConfigured || email.includes('demo') || email === 'test@example.com') {
+      isDemoMode = true;
+      userId = 'demo-user-id';
+      demoData = loadDemoData();
+      localStorage.setItem('flow_demo_user', '1');
+      if (sessionCallback) sessionCallback({ user: { id: userId, email: email || 'demo@flowkpi.local' } });
+      return;
+    }
+    const { error } = await client.auth.signInWithPassword({ email: email.trim(), password });
+    if (error) throw error;
+  },
+
+  async signOut() {
+    if (isDemoMode) {
+      isDemoMode = false;
+      userId = null;
+      localStorage.removeItem('flow_demo_user');
+      if (sessionCallback) sessionCallback(null);
+      return;
+    }
+    if (client) {
+      const { error } = await client.auth.signOut({ scope: 'local' });
+      if (error) throw error;
+    }
+  },
+
+  async changed() {
+    if (isDemoMode) return false;
+    return snapshot && String(await rpc('flow_revision')) !== String(snapshot.revision);
+  },
+
+  async call(name, args, period) {
+    if (name.includes('Gemini')) return gemini(name, args);
+    
+    if (isDemoMode) {
+      const data = loadDemoData();
+      if (name === 'getSystemData') {
+        data.period = period;
+        return clone(data);
+      }
+      if (name === 'apiToggleCheckItem') {
+        const item = data.checkItems.find(c => c.id === args[0]);
+        if (item) item.done = args[1];
+        // Recalculate progress for subtask and kpi
+        const sub = data.subTasks.find(s => s.id === item?.subTaskId);
+        if (sub) {
+          const checks = data.checkItems.filter(c => c.subTaskId === sub.id);
+          sub.progress = checks.length ? Math.round((checks.filter(c => c.done).length / checks.length) * 100) : sub.progress;
+          const kpi = data.kpis.find(k => k.id === sub.kpiId);
+          if (kpi) {
+            const subs = data.subTasks.filter(s => s.kpiId === kpi.id);
+            kpi.progress = subs.length ? Math.round(subs.reduce((acc, s) => acc + (s.progress || 0), 0) / subs.length) : kpi.progress;
+          }
+        }
+        demoData = data;
+        saveDemoData();
+        data.period = period;
+        return clone(data);
+      }
+      if (name === 'apiSaveDailyNote') {
+        const note = data.dailyNotes.find(n => n.date === args[0]);
+        if (note) note.content = args[1];
+        else data.dailyNotes.push({ date: args[0], content: args[1] });
+        demoData = data;
+        saveDemoData();
+        data.period = period;
+        return clone(data);
+      }
+      if (name === 'apiAddKpi') {
+        data.kpis.push({ id: 'kpi-' + Date.now(), title: args[0], period: args[1], weight: Number(args[2]) || 0, progress: 0, note: '', driveLink: '' });
+      } else if (name === 'apiAddSubTask') {
+        data.subTasks.push({ id: 'sub-' + Date.now(), kpiId: args[0], title: args[1], dueDate: args[2], progress: 0, status: 'Chưa làm', driveLink: '' });
+      } else if (name === 'apiAddCheckItem') {
+        data.checkItems.push({ id: 'chk-' + Date.now(), subTaskId: args[0], title: args[1], dueDate: args[2], done: false, note: '' });
+      } else if (name === 'apiAddUrgentTask') {
+        data.urgentTasks.push({ id: 'urg-' + Date.now(), title: args[0].title, dueDate: args[0].dueDate, kpiGroup: args[0].kpiGroup || 'Đột xuất', status: 'Chưa làm' });
+      } else if (name === 'apiAddLeave') {
+        data.leaves.push({ id: 'lea-' + Date.now(), ...args[0] });
+      } else if (name.startsWith('apiDelete')) {
+        const id = args[0];
+        if (name === 'apiDeleteKpi') {
+          data.kpis = data.kpis.filter(k => k.id !== id);
+          const subs = data.subTasks.filter(s => s.kpiId === id).map(s => s.id);
+          data.subTasks = data.subTasks.filter(s => s.kpiId !== id);
+          data.checkItems = data.checkItems.filter(c => !subs.includes(c.subTaskId));
+        } else if (name === 'apiDeleteSubTask') {
+          data.subTasks = data.subTasks.filter(s => s.id !== id);
+          data.checkItems = data.checkItems.filter(c => c.subTaskId !== id);
+        } else if (name === 'apiDeleteCheckItem') {
+          data.checkItems = data.checkItems.filter(c => c.id !== id);
+        } else if (name === 'apiDeleteUrgentTask') {
+          data.urgentTasks = data.urgentTasks.filter(t => t.id !== id);
+        } else if (name === 'apiDeleteLeave') {
+          data.leaves = data.leaves.filter(l => l.id !== id);
+        }
+      }
+      demoData = data;
+      saveDemoData();
+      data.period = period;
+      return clone(data);
+    }
+
+    if (name === 'getSystemData') return load(period);
+    if (name === 'apiToggleCheckItem') return mutate('checkItems', 'update', args[0], { done: args[1] }, period);
+    if (name === 'apiSaveDailyNote') return mutate('dailyNotes', 'upsert', args[0], { date: args[0], content: args[1] }, period);
+    const match = /^api(Add|Update|Delete)(Kpi|SubTask|CheckItem|UrgentTask|Leave|ResourceLink)$/.exec(name);
+    if (!match) throw Error('Thao tác chưa được hỗ trợ: ' + name);
+    const [, action, type] = match;
+    let patch = args[1], id = args[0];
+    if (action === 'Add') {
+      id = null;
+      patch = type === 'Kpi' ? { title: args[0], period: args[1], weight: Number(args[2]) } : type === 'SubTask' ? { kpiId: args[0], title: args[1], dueDate: args[2] } : type === 'CheckItem' ? { subTaskId: args[0], title: args[1], dueDate: args[2] } : args[0];
+    }
+    return mutate(types[type], action.toLowerCase(), id, patch, period);
   }
 };
