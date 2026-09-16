@@ -482,6 +482,19 @@ import { backend } from './supabase.js';
       amount: Number(base.amount) || 0,
       checked: !payroll || existing.has('base:' + (base.title || 'Lương cơ bản'))
     }];
+    ks().forEach(function(kpi){
+      var key = 'kpi:' + kpi.id;
+      var old = existing.get(key);
+      rows.push({
+        key: key,
+        sourceType: 'kpi',
+        sourceId: kpi.id,
+        title: 'KPI: ' + kpi.title,
+        amount: old ? Number(old.amount) || 0 : Number(kpi.salaryAmount) || 0,
+        checked: !!old,
+        meta: 'Tiến độ ' + p(kpi.progress) + '%' + (kpi.salaryEnabled ? ' · đã bật tính thưởng' : '')
+      });
+    });
     completedSubTasks().forEach(function(sub){
       var key = 'subTask:' + sub.id;
       var old = existing.get(key);
@@ -512,7 +525,7 @@ import { backend } from './supabase.js';
     if (!ready) return toast('Đang tải dữ liệu. Vui lòng chờ.', true);
     var draft = payrollDraft(id);
     modalVersion++;
-    e('modal').innerHTML = '<div class="modal"><form id="form" class="dialog payroll-dialog"><h2>' + (draft.payroll ? 'Chỉnh sửa bảng lương' : 'Thêm bảng lương') + '</h2><label class="field">Tên bảng lương<input name="title" required value="' + esc(draft.payroll ? draft.payroll.title : 'Bảng lương ' + P) + '"></label><label class="field">Tháng<input name="period" type="month" value="' + esc(draft.payroll ? draft.payroll.period : P) + '"></label><label class="field">Ghi chú<textarea name="note">' + esc(draft.payroll ? draft.payroll.note : '') + '</textarea></label><div class="payroll-picker">' + draft.rows.map(function(row, i){
+    e('modal').innerHTML = '<div class="modal"><form id="form" class="dialog payroll-dialog"><h2>' + (draft.payroll ? 'Chỉnh sửa bảng lương' : 'Thêm bảng lương') + '</h2><label class="field">Tên bảng lương<input name="title" required value="' + esc(draft.payroll ? draft.payroll.title : 'Bảng lương ' + P) + '"></label><label class="field">Tháng<input name="period" type="month" required value="' + esc(draft.payroll ? draft.payroll.period : P) + '"></label><label class="field">Ghi chú<textarea name="note">' + esc(draft.payroll ? draft.payroll.note : '') + '</textarea></label><p class="small">Chọn lương cơ bản, KPI hoặc sub-task muốn đưa vào bảng lương; có thể sửa số tiền trước khi lưu.</p><div class="payroll-picker">' + draft.rows.map(function(row, i){
       return '<label class="payroll-pick-row"><input type="checkbox" name="row' + i + '" ' + (row.checked ? 'checked' : '') + '><span><b>' + esc(row.title) + '</b>' + (row.meta ? '<small>' + esc(row.meta) + '</small>' : '') + '</span><input name="amount' + i + '" type="number" min="0" value="' + esc(row.amount) + '"></label>';
     }).join('') + '</div><div class="actions"><button type="button" id="cancel" class="btn ghost">Hủy</button><button class="btn primary">' + (draft.payroll ? 'Lưu bảng lương' : 'Tạo bảng lương') + '</button></div></form></div>';
     e('cancel').onclick = close;
@@ -529,6 +542,7 @@ import { backend } from './supabase.js';
         };
       }).filter(function(row){return row.selected;});
       if (!rows.length) return toast('Chọn ít nhất một dòng lương.', true);
+      if (!formNode.elements.namedItem('period').value) return toast('Vui lòng chọn tháng bảng lương.', true);
       save('apiSavePayroll', [{ id: id || null, title: formNode.elements.namedItem('title').value, period: formNode.elements.namedItem('period').value, note: formNode.elements.namedItem('note').value, items: rows }]);
     };
   }

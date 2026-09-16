@@ -393,7 +393,13 @@ export const backend = {
     if (name === 'apiSavePayroll') {
       const draft = args[0];
       const id = draft.id || null;
-      const saved = await rpc('flow_mutate', { p_table: 'payrolls', p_action: id ? 'update' : 'add', p_id: id, p_patch: { title: draft.title, period: draft.period, note: draft.note || '' } });
+      let saved;
+      try {
+        saved = await rpc('flow_mutate', { p_table: 'payrolls', p_action: id ? 'update' : 'add', p_id: id, p_patch: { title: draft.title, period: draft.period, note: draft.note || '' } });
+      } catch (error) {
+        if (/Bảng không hợp lệ/i.test(error.message)) throw Error('Supabase đang dùng SQL cũ nên chưa hỗ trợ bảng lương. Hãy chạy lại toàn bộ file schema.sql mới trong SQL Editor rồi thử lại.');
+        throw error;
+      }
       const payrollId = id || saved.upserts?.payrolls?.[0]?.id;
       const existing = (snapshot?.payrollItems || []).filter(i => i.payrollId === payrollId);
       for (const item of existing) await rpc('flow_mutate', { p_table: 'payrollItems', p_action: 'delete', p_id: item.id, p_patch: {} });
