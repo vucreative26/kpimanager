@@ -453,8 +453,9 @@ import { backend } from './supabase.js';
       var sub = S.subTasks.find(function (s) {
         return s.id === d.ask;
       });
-      ctx = 'Sub-task: ' + sub.title + '\nHạn: ' + sub.dueDate;
-      nav('kpi');
+      ctx = 'Sub-task: ' + (sub ? sub.title : '') + '\nHạn: ' + (sub ? sub.dueDate : '');
+      var drawer = e('chatDrawer');
+      if (drawer) drawer.hidden = false;
       return ask('Hãy đề xuất 4–6 đầu mục nhỏ để hoàn thành sub-task này.');
     }
     if (d.eu) return edit('URGENT', d.eu);
@@ -556,6 +557,34 @@ import { backend } from './supabase.js';
       ask(node.dataset.p);
     };
   });
+  function toggleDrawer(open) {
+    var drawer = e('chatDrawer');
+    if (!drawer) return;
+    drawer.hidden = typeof open === 'boolean' ? !open : !drawer.hidden;
+    if (!drawer.hidden) {
+      var msgs = e('msgs');
+      if (msgs) msgs.scrollTop = msgs.scrollHeight;
+      var text = e('chatText');
+      if (text) setTimeout(function () { text.focus(); }, 120);
+    }
+  }
+  var closeBtn = e('chatCloseBtn'), backdrop = e('chatBackdrop');
+  if (closeBtn) closeBtn.onclick = function () { toggleDrawer(false); };
+  if (backdrop) backdrop.onclick = function () { toggleDrawer(false); };
+  var toggleAiDesk = e('toggleAiDesktop');
+  if (toggleAiDesk) toggleAiDesk.onclick = function () { toggleDrawer(); };
+  var mobileAi = e('mobileAiBtn');
+  if (mobileAi) mobileAi.onclick = function () { toggleDrawer(); };
+  var mobileSync = e('mobileSyncBtn');
+  if (mobileSync) mobileSync.onclick = function () { e('sync').click(); };
+  var mobileLogout = e('mobileLogoutBtn');
+  if (mobileLogout) mobileLogout.onclick = function () { e('logout').click(); };
+  window.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') {
+      var drawer = e('chatDrawer');
+      if (drawer && !drawer.hidden) toggleDrawer(false);
+    }
+  });
   e('csv').onclick = function () {
     var rows = [['Kỳ', 'Sub-task', 'Hạn', 'Tiến độ', 'Trạng thái']];
     ss().forEach(function (x) {
@@ -607,6 +636,18 @@ import { backend } from './supabase.js';
   document.addEventListener('visibilitychange',function(){if(!document.hidden)checkUpdates();});
   window.addEventListener('online',checkUpdates);
   e('loginForm').onsubmit=async function(event){event.preventDefault();e('loginButton').disabled=true;e('authMessage').textContent='Đang đăng nhập…';try{await backend.signIn(e('email').value,e('password').value);e('password').value='';e('authMessage').textContent='';}catch(error){e('authMessage').textContent=error.message;}finally{e('loginButton').disabled=false;}};
+  var demoBtn = e('demoButton');
+  if (demoBtn) {
+    demoBtn.onclick = async function () {
+      e('authMessage').textContent = 'Đang khởi tạo dữ liệu mẫu…';
+      try {
+        await backend.signIn('demo@flowkpi.local', 'demo');
+        e('authMessage').textContent = '';
+      } catch (error) {
+        e('authMessage').textContent = error.message;
+      }
+    };
+  }
   e('logout').onclick=async function(){if(drafts.size&&!confirm('Có ghi chú chưa lưu. Đăng xuất và bỏ bản nháp?'))return;try{await backend.signOut();}catch(error){toast(error.message,true);}};
   backend.initialize(sessionChanged).then(function(){startupStatus.hidden=true;}).catch(function(error){startupStatus.hidden=true;e('authMessage').textContent=error.message;e('loginButton').disabled=true;});
   function dash() {
