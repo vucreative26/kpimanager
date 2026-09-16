@@ -1,6 +1,6 @@
 import { config } from './config.js';
 
-const keys = ['kpis','subTasks','checkItems','urgentTasks','dailyNotes','leaves','resourceLinks','salaryRules','salaryBonuses'];
+const keys = ['kpis','subTasks','checkItems','urgentTasks','dailyNotes','leaves','resourceLinks','salaryRules','salaryBonuses','payrolls','payrollItems'];
 let client, userId, snapshot, generation=0;
 const empty = () => Object.fromEntries(keys.map(key=>[key,[]]));
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -46,6 +46,9 @@ function restrict(data,period){
   data.urgentTasks=data.urgentTasks.filter(t=>t.status!=='Hoàn thành'||String(t.dueDate||t.createdAt).slice(0,7)===period);
   data.salaryRules=data.salaryRules.filter(r=>r.active!==false);
   data.salaryBonuses=data.salaryBonuses.filter(b=>b.period===period);
+  data.payrolls=data.payrolls.filter(p=>p.period===period);
+  const payrollIds=new Set(data.payrolls.map(p=>p.id));
+  data.payrollItems=data.payrollItems.filter(i=>payrollIds.has(i.payrollId));
   return data;
 }
 async function mutate(table,action,id,patch,period){
@@ -62,7 +65,7 @@ async function mutate(table,action,id,patch,period){
   snapshot=restrict(normalize(snapshot),period);
   return clone(snapshot);
 }
-const types={Kpi:'kpis',SubTask:'subTasks',CheckItem:'checkItems',UrgentTask:'urgentTasks',Leave:'leaves',ResourceLink:'resourceLinks',SalaryRule:'salaryRules',SalaryBonus:'salaryBonuses'};
+const types={Kpi:'kpis',SubTask:'subTasks',CheckItem:'checkItems',UrgentTask:'urgentTasks',Leave:'leaves',ResourceLink:'resourceLinks',SalaryRule:'salaryRules',SalaryBonus:'salaryBonuses',Payroll:'payrolls',PayrollItem:'payrollItems'};
 function geminiSettings(){try{return JSON.parse(localStorage.getItem('flow-gemini:'+userId)||'{}');}catch{return {};}}
 async function gemini(name,args){
   let settings=geminiSettings();
@@ -116,7 +119,9 @@ function getInitialDemoData() {
     salaryRules: defaultSalaryRules.map((rule, index) => ({ id: 'sal-' + index, ...rule })),
     salaryBonuses: [
       { id: 'bonus-demo', period: currentPeriod, title: 'Đào tạo Trainer Lamour', amount: 1000000, done: false, note: 'Khoản KPI riêng có thể bật khi hoàn thành.' }
-    ]
+    ],
+    payrolls: [],
+    payrollItems: []
   };
 }
 
@@ -132,6 +137,10 @@ function loadDemoData() {
     } catch {
       demoData = getInitialDemoData();
     }
+  }
+  const defaults = getInitialDemoData();
+  for (const key of keys) {
+    if (!Array.isArray(demoData[key])) demoData[key] = clone(defaults[key] || []);
   }
   return clone(demoData);
 }
@@ -226,16 +235,22 @@ export const backend = {
         flow_leaves: data.leaves || [],
         flow_resource_links: data.resourceLinks || [],
         flow_salary_rules: data.salaryRules || [],
-        flow_salary_bonuses: data.salaryBonuses || []
+        flow_salary_bonuses: data.salaryBonuses || [],
+        flow_payrolls: data.payrolls || [],
+        flow_payroll_items: data.payrollItems || []
       };
     }
     if (isDemoMode && name === 'apiSalaryYear') {
       const year = String(args[0] || '').slice(0, 4);
       const data = loadDemoData();
+      data.payrolls = data.payrolls || [];
+      data.payrollItems = data.payrollItems || [];
       const doneChecks = data.checkItems.filter(c => c.done && String(c.dueDate || '').slice(0, 4) === year).length;
       const tripDays = data.leaves.filter(l => l.type === 'Đi công tác' && String(l.startDate).slice(0, 4) === year).length;
       const leaveDays = data.leaves.filter(l => l.type === 'Nghỉ phép' && String(l.startDate).slice(0, 4) === year).length;
-      return { doneSubTasks: doneChecks, tripDays, leaveDays, totalSalary: 0 };
+      const payrollIds = new Set(data.payrolls.filter(p => String(p.period).slice(0, 4) === year).map(p => p.id));
+      const totalSalary = data.payrollItems.filter(i => payrollIds.has(i.payrollId)).reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+      return { doneSubTasks: doneChecks, tripDays, leaveDays, totalSalary };
     }
     if (name === 'apiSalaryYear') return rpc('flow_salary_year', { p_year: args[0] });
     if (name === 'apiExportData') {
@@ -254,7 +269,9 @@ export const backend = {
           flow_leaves: current.leaves || [],
           flow_resource_links: current.resourceLinks || [],
           flow_salary_rules: current.salaryRules || [],
-          flow_salary_bonuses: current.salaryBonuses || []
+          flow_salary_bonuses: current.salaryBonuses || [],
+          flow_payrolls: current.payrolls || [],
+          flow_payroll_items: current.payrollItems || []
         };
       }
     }
@@ -270,6 +287,27 @@ export const backend = {
       if (name === 'getSystemData') {
         data.salaryRules = data.salaryRules || getInitialDemoData().salaryRules;
         data.salaryBonuses = data.salaryBonuses || [];
+        data.payrolls = data.payrolls || [];
+        data.payrollItems = data.payrollItems || [];
+        data.period = period;
+        return restrict(clone(data), period);
+      }
+      if (name === 'apiSavePayroll') {
+        const draft = args[0];
+        data.payrolls = data.payrolls || [];
+        data.payrollItems = data.payrollItems || [];
+        const id = draft.id || 'pay-' + Date.now();
+        let payroll = data.payrolls.find(p => p.id === id);
+        if (!payroll) {
+          payroll = { id, period: draft.period, title: draft.title, note: draft.note || '' };
+          data.payrolls.push(payroll);
+        } else {
+          Object.assign(payroll, { period: draft.period, title: draft.title, note: draft.note || '' });
+        }
+        data.payrollItems = data.payrollItems.filter(i => i.payrollId !== id);
+        draft.items.forEach((item, index) => data.payrollItems.push({ id: 'payitem-' + Date.now() + '-' + index, payrollId: id, sourceType: item.sourceType, sourceId: item.sourceId || '', title: item.title, amount: Number(item.amount) || 0 }));
+        demoData = data;
+        saveDemoData();
         data.period = period;
         return restrict(clone(data), period);
       }
@@ -340,6 +378,9 @@ export const backend = {
           data.salaryRules = data.salaryRules.filter(r => r.id !== id);
         } else if (name === 'apiDeleteSalaryBonus') {
           data.salaryBonuses = data.salaryBonuses.filter(b => b.id !== id);
+        } else if (name === 'apiDeletePayroll') {
+          data.payrolls = data.payrolls.filter(p => p.id !== id);
+          data.payrollItems = data.payrollItems.filter(i => i.payrollId !== id);
         }
       }
       demoData = data;
@@ -349,6 +390,17 @@ export const backend = {
     }
 
     if (name === 'getSystemData') return load(period);
+    if (name === 'apiSavePayroll') {
+      const draft = args[0];
+      const id = draft.id || null;
+      const saved = await rpc('flow_mutate', { p_table: 'payrolls', p_action: id ? 'update' : 'add', p_id: id, p_patch: { title: draft.title, period: draft.period, note: draft.note || '' } });
+      const payrollId = id || saved.upserts?.payrolls?.[0]?.id;
+      const existing = (snapshot?.payrollItems || []).filter(i => i.payrollId === payrollId);
+      for (const item of existing) await rpc('flow_mutate', { p_table: 'payrollItems', p_action: 'delete', p_id: item.id, p_patch: {} });
+      for (const item of draft.items) await rpc('flow_mutate', { p_table: 'payrollItems', p_action: 'add', p_id: null, p_patch: { payrollId, sourceType: item.sourceType, sourceId: item.sourceId || '', title: item.title, amount: Number(item.amount) || 0 } });
+      snapshot = null;
+      return load(period);
+    }
     if (name === 'apiToggleCheckItem') return mutate('checkItems', 'update', args[0], { done: args[1] }, period);
     if (name === 'apiSaveDailyNote') return mutate('dailyNotes', 'upsert', args[0], { date: args[0], content: args[1] }, period);
     const match = /^api(Add|Update|Delete)(Kpi|SubTask|CheckItem|UrgentTask|Leave|ResourceLink)$/.exec(name);

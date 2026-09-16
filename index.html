@@ -128,7 +128,7 @@
       </div>
     </header>
 
-    <div class="data-tools"><button id="deleteData" class="btn danger">Xóa dữ liệu theo kỳ</button><button id="exportData" class="btn ghost">Export data</button></div>
+    <div class="data-tools"><button id="exportData" class="btn ghost">Export data</button></div>
     <section id="dashboard" class="view active">
       <div id="metrics" class="metrics"></div>
       <div class="grid g3">
@@ -176,6 +176,7 @@
         <span id="count" class="small filter-count"></span>
         <div class="filter-actions">
           <button id="toggleAiDesktop" class="btn ghost btn-ai-toggle" type="button">✦ Gemini AI</button>
+          <button id="deleteData" class="btn danger">Xóa dữ liệu theo kỳ</button>
           <button id="kpiAdd" class="btn primary">+ KPI mới</button>
         </div>
       </div>
@@ -246,15 +247,15 @@
       <div class="filter">
         <span id="salarySummary" class="small report-summary"></span>
         <div class="filter-actions">
-          <button id="salaryRuleAdd" class="btn ghost">+ Dòng lương</button>
-          <button id="salaryBonusAdd" class="btn primary">+ KPI thưởng</button>
+          <button id="salaryRuleAdd" class="btn ghost">+ Gợi ý lương</button>
+          <button id="payrollAdd" class="btn primary">+ Thêm bảng lương</button>
         </div>
       </div>
       <div id="salaryMetrics" class="metrics"></div>
       <div class="grid g2 salary-grid">
         <div class="card">
           <div class="card-header"><h2>Bảng lương tháng</h2></div>
-          <div id="salaryLines"></div>
+          <div id="payrollList"></div>
         </div>
         <div class="card">
           <div class="card-header"><h2>Tổng kết năm</h2></div>
@@ -267,8 +268,8 @@
           <div id="salaryRules"></div>
         </div>
         <div class="card">
-          <div class="card-header"><h2>KPI thưởng riêng</h2></div>
-          <div id="salaryBonuses"></div>
+          <div class="card-header"><h2>Sub-task đã hoàn thành</h2></div>
+          <div id="salaryDoneTasks"></div>
         </div>
       </div>
     </section>
