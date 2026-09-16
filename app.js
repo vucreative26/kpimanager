@@ -34,6 +34,7 @@ import { backend } from './supabase.js';
     chatting = false,
     searchTimer;
   var expanded = new Map(),
+    expandedSub = new Map(),
     drafts = new Map(),
     index = {};
   function e(id) {
@@ -240,12 +241,37 @@ import { backend } from './supabase.js';
     e('count').textContent = K.length + ' KPI trong ' + P;
     e('tree').innerHTML = K.length ? K.map(function (k, i) {
       var subs = index.subs.get(k.id) || [];
-      return '<details class="kpi" data-kpi="' + esc(k.id) + '" ' + ((expanded.has(k.id) ? expanded.get(k.id) : i === 0) ? 'open' : '') + '><summary><div class="khead"><b>' + esc(k.title) + '</b><small>' + p(k.weight) + '% trọng số</small>' + b(k.progress, true) + controls('KPI', k.id) + '<button type="button" class="mini" data-sub="' + esc(k.id) + '">+ Sub-task</button></div></summary>' + links('KPI', k.id, k.driveLink) + subs.map(function (s) {
+      return '<details class="kpi" data-kpi="' + esc(k.id) + '" ' + ((expanded.has(k.id) ? expanded.get(k.id) : i === 0) ? 'open' : '') + '><summary><div class="khead"><b>' + esc(k.title) + '</b><small>' + p(k.weight) + '% trọng số</small>' + b(k.progress, true) + controls('KPI', k.id) + '<button type="button" class="mini" data-sub="' + esc(k.id) + '">+ Sub-task</button></div></summary>' + links('KPI', k.id, k.driveLink) + (subs.length ? '<div class="subs-list">' + subs.map(function (s) {
         var checks = index.checks.get(s.id) || [];
-        return '<div class="sub"><div class="row"><b class="grow">' + esc(s.title) + '</b><small>' + esc(s.dueDate) + '</small><button class="mini" data-ask="' + esc(s.id) + '">Hỏi Gemini</button>' + controls('SUBTASK', s.id) + '<button class="mini" data-ca="' + esc(s.id) + '">+ Việc</button></div>' + b(s.progress, isdone(s)) + links('SUBTASK', s.id, s.driveLink) + '<div class="checks">' + (checks.length ? checks.map(function (c) {
-          return '<div class="check"><label class="grow"><input type="checkbox" data-check="' + esc(c.id) + '" ' + (isdone(c) ? 'checked' : '') + '> ' + esc(c.title) + '</label><small>' + esc(c.dueDate) + '</small>' + controls('CHECK', c.id) + '</div>' + links('CHECK', c.id);
-        }).join('') : empty('Chưa có đầu việc.')) + '</div></div>';
-      }).join('') + '</details>';
+        var doneCount = checks.filter(isdone).length;
+        var isSubOpen = expandedSub.has(s.id) ? expandedSub.get(s.id) : false;
+        return '<details class="sub" data-subtask="' + esc(s.id) + '" ' + (isSubOpen ? 'open' : '') + '>' +
+          '<summary class="sub-summary">' +
+            '<div class="sub-compact-row">' +
+              '<span class="sub-caret">▸</span>' +
+              '<b class="grow sub-compact-title" title="' + esc(s.title) + '">' + esc(s.title) + '</b>' +
+              '<span class="badge ' + (checks.length && doneCount === checks.length ? 'ok' : 'sub-count-badge') + '">' + (checks.length ? doneCount + '/' + checks.length + ' việc' : '0 việc') + '</span>' +
+              '<small class="sub-date">' + esc(s.dueDate) + '</small>' +
+              '<div class="sub-mini-bar">' + b(s.progress, isdone(s)) + '</div>' +
+            '</div>' +
+          '</summary>' +
+          '<div class="sub-detail-body">' +
+            '<div class="sub-expanded-head">' +
+              '<div class="sub-full-title">' + esc(s.title) + '</div>' +
+              '<div class="sub-actions-row">' +
+                '<button type="button" class="mini ai-pill" data-ask="' + esc(s.id) + '">✦ Hỏi Gemini</button>' +
+                controls('SUBTASK', s.id) +
+                '<button type="button" class="mini" data-ca="' + esc(s.id) + '">+ Việc</button>' +
+              '</div>' +
+            '</div>' +
+            b(s.progress, isdone(s)) +
+            links('SUBTASK', s.id, s.driveLink) +
+            '<div class="checks">' + (checks.length ? checks.map(function (c) {
+              return '<div class="check"><label class="grow"><input type="checkbox" data-check="' + esc(c.id) + '" ' + (isdone(c) ? 'checked' : '') + '> ' + esc(c.title) + '</label><small>' + esc(c.dueDate) + '</small>' + controls('CHECK', c.id) + '</div>' + links('CHECK', c.id);
+            }).join('') : empty('Chưa có đầu việc.')) + '</div>' +
+          '</div>' +
+        '</details>';
+      }).join('') + '</div>' : empty('Chưa có sub-task nào.')) + '</details>';
     }).join('') : empty('Chưa có KPI phù hợp.');
     e('tree').scrollTop = scroll;
   }
@@ -328,7 +354,7 @@ import { backend } from './supabase.js';
       opts: opts
     };
   }
-  function form(title, fields, submit) {
+  function form(title, fields, submit, onDelete) {
     if (!ready) return toast('Đang tải dữ liệu. Vui lòng chờ.', true);
     modalVersion++;
     e('modal').innerHTML = '<div class="modal"><form id="form" class="dialog"><h2>' + esc(title) + '</h2>' + fields.map(function (f) {
@@ -337,8 +363,16 @@ import { backend } from './supabase.js';
         return '<option ' + (o === f.v ? 'selected' : '') + '>' + esc(o) + '</option>';
       }).join('') + '</select>' : f.type === 'textarea' ? '<textarea' + attrs + '>' + esc(f.v) + '</textarea>' : '<input' + attrs + ' type="' + f.type + '" ' + (f.type === 'checkbox' ? f.v ? 'checked' : '' : 'value="' + esc(f.v) + '"') + (f.name === 'title' ? ' required' : '') + (f.type === 'number' ? ' min="0" max="100"' : '') + '>';
       return '<label class="field">' + esc(f.label) + control + '</label>';
-    }).join('') + '<div class="actions"><button type="button" id="cancel" class="btn ghost">Hủy</button><button class="btn primary">Lưu</button></div></form></div>';
+    }).join('') + '<div class="actions">' + (onDelete ? '<button type="button" id="formDelete" class="btn danger" style="margin-right:auto">Xóa</button>' : '') + '<button type="button" id="cancel" class="btn ghost">Hủy</button><button class="btn primary">Lưu</button></div></form></div>';
     e('cancel').onclick = close;
+    if (onDelete && e('formDelete')) {
+      e('formDelete').onclick = function () {
+        if (confirm('Xóa mục này?')) {
+          close();
+          onDelete();
+        }
+      };
+    }
     e('form').onsubmit = function (event) {
       event.preventDefault();
       if (event.target.dataset.busy) return;
@@ -371,8 +405,10 @@ import { backend } from './supabase.js';
       if (type === 'URGENT') fields.push(field('kpiGroup', 'Nhóm', item.kpiGroup), field('status', 'Trạng thái', item.status, 'select', ['Chưa làm', 'Đang làm', 'Hoàn thành']));
       fields.push(field('driveLink', 'Link tài liệu chính', item.driveLink, 'url'));
     }
-    form('Chỉnh sửa' + (derived ? ' — tiến độ tính từ các mục con' : ''), fields, function (values) {
+    form(type === 'URGENT' ? 'Chi tiết việc gấp' : 'Chỉnh sửa' + (derived ? ' — tiến độ tính từ các mục con' : ''), fields, function (values) {
       save('apiUpdate' + config[type][1], [id, values]);
+    }, function () {
+      save('apiDelete' + config[type][1], [id]);
     });
   }
   function addK() {
@@ -458,6 +494,12 @@ import { backend } from './supabase.js';
       if (drawer) drawer.hidden = false;
       return ask('Hãy đề xuất 4–6 đầu mục nhỏ để hoàn thành sub-task này.');
     }
+    if (d.tu) {
+      var item = S.urgentTasks.find(function (t) { return t.id === d.tu; });
+      if (!item) return;
+      var newStatus = isdone(item) ? 'Chưa làm' : 'Hoàn thành';
+      return save('apiUpdateUrgentTask', [d.tu, { status: newStatus }]);
+    }
     if (d.eu) return edit('URGENT', d.eu);
     if (d.du || d.dl) {
       if (confirm('Xóa mục này?')) save(d.du ? 'apiDeleteUrgentTask' : 'apiDeleteLeave', [d.du || d.dl]);
@@ -470,6 +512,7 @@ import { backend } from './supabase.js';
   });
   e('tree').addEventListener('toggle', function (event) {
     if (event.target.dataset.kpi) expanded.set(event.target.dataset.kpi, event.target.open);
+    if (event.target.dataset.subtask) expandedSub.set(event.target.dataset.subtask, event.target.open);
   }, true);
   document.addEventListener('change', function (event) {
     var target = event.target;
@@ -616,7 +659,7 @@ import { backend } from './supabase.js';
     var user=session&&session.user.id;
     if(user===signedUser)return;
     signedUser=user;clearInterval(pollTimer);
-    drafts.clear();expanded.clear();ctx='';close();ready=false;
+    drafts.clear();expanded.clear();expandedSub.clear();ctx='';close();ready=false;
     S={kpis:[],subTasks:[],checkItems:[],urgentTasks:[],dailyNotes:[],leaves:[],resourceLinks:[]};
     ['metrics','today','late','leaves','progress','health','tree','cal','dateItems','doneList','pendingList','urgentGrid'].forEach(function(id){e(id).replaceChildren();});
     e('note').value='';e('search').value='';Q='';
@@ -698,7 +741,20 @@ import { backend } from './supabase.js';
   }
   function urgent() {
     e('urgentGrid').innerHTML = S.urgentTasks.length ? S.urgentTasks.map(function (x) {
-      return '<div class="urgent"><h3>' + esc(x.title) + '</h3><p>Hạn: ' + esc(x.dueDate || 'Chưa đặt') + '</p><p>Nhóm: ' + esc(x.kpiGroup || 'Đột xuất') + '</p><button class="mini" data-eu="' + esc(x.id) + '">Sửa</button> <button class="mini red" data-du="' + esc(x.id) + '">Xóa</button></div>';
+      var done = isdone(x);
+      return '<div class="urgent-tile ' + (done ? 'is-done' : '') + '" data-eu="' + esc(x.id) + '">' +
+        '<div class="urgent-tile-top">' +
+          '<span class="urgent-group-badge">' + esc(x.kpiGroup || 'Đột xuất') + '</span>' +
+          '<button type="button" class="urgent-complete-btn ' + (done ? 'done' : '') + '" data-tu="' + esc(x.id) + '" title="' + (done ? 'Đánh dấu chưa xong' : 'Đánh dấu hoàn thành') + '">' +
+            (done ? '✓ Đã xong' : '○ Hoàn thành') +
+          '</button>' +
+        '</div>' +
+        '<div class="urgent-tile-title ' + (done ? 'done-text' : '') + '" title="' + esc(x.title) + '">' + esc(x.title) + '</div>' +
+        '<div class="urgent-tile-bottom">' +
+          '<span class="urgent-due-text">📅 ' + esc(x.dueDate || 'Chưa đặt hạn') + '</span>' +
+          '<span class="urgent-view-more">Chi tiết ›</span>' +
+        '</div>' +
+      '</div>';
     }).join('') : empty('Chưa có việc gấp.');
   }
 })();

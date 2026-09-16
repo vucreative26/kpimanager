@@ -267,6 +267,9 @@ a:hover {
   overflow-x: hidden;
   padding: 24px 32px 40px;
   height: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .head {
@@ -817,43 +820,145 @@ a:hover {
   gap: 6px;
 }
 
-/* Sub-task Card */
-.sub {
-  margin: 0 16px 14px;
-  padding: 14px 16px;
-  background: #ffffff;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+/* Sub-task Collapsible Accordion */
+.subs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 16px 16px;
 }
 
-.sub > .row {
+.sub {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.16s ease;
+}
+
+.sub:hover {
+  border-color: #cbd5e1;
+}
+
+.sub[open] {
+  background: #ffffff;
+  border-color: #94a3b8;
+  box-shadow: var(--shadow-sm);
+}
+
+.sub-summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 10px 12px;
+  user-select: none;
+  background: transparent;
+  transition: background 0.14s ease;
+}
+
+.sub-summary::-webkit-details-marker {
+  display: none;
+}
+
+.sub-summary:hover {
+  background: rgba(241, 245, 249, 0.7);
+}
+
+.sub-compact-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
+  width: 100%;
+  min-width: 0;
 }
 
-.sub > .row > b.grow {
-  font-size: 13.5px;
+.sub-caret {
+  display: inline-block;
+  font-size: 14px;
+  color: var(--muted);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+  width: 12px;
+  text-align: center;
+}
+
+.sub[open] .sub-caret {
+  transform: rotate(90deg);
+  color: var(--primary);
+}
+
+.sub-compact-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
   font-weight: 700;
   color: var(--ink);
-  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.sub > .row > small {
+.sub-count-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: #e2e8f0;
+  color: var(--ink-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sub-date {
   font-size: 11.5px;
   font-weight: 600;
   color: var(--muted);
-  background: var(--bg-subtle);
-  padding: 2px 7px;
-  border-radius: var(--radius-sm);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.sub > .bar {
-  margin: 8px 0 10px;
+.sub-mini-bar {
+  width: 55px;
+  flex-shrink: 0;
+}
+
+.sub-detail-body {
+  padding: 14px 16px 16px;
+  border-top: 1px solid var(--border-subtle);
+  background: #ffffff;
+  animation: fadeIn 0.16s ease;
+}
+
+.sub-expanded-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.sub-full-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.sub-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ai-pill {
+  background: var(--primary-light) !important;
+  color: var(--primary) !important;
+  border-color: rgba(79, 70, 229, 0.25) !important;
+  font-weight: 700 !important;
+}
+
+.ai-pill:hover {
+  background: #e0e7ff !important;
 }
 
 /* Checklist Items */
@@ -956,24 +1061,32 @@ a:hover {
 
 .cal-layout {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: minmax(0, 1fr) 320px;
   gap: 16px;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .cal-card {
   padding: 16px;
   overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .cal {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   width: 100%;
+  max-width: 100%;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
   background: #ffffff;
+  box-sizing: border-box;
+  table-layout: fixed;
 }
 
 .dow {
@@ -982,10 +1095,12 @@ a:hover {
   font-weight: 700;
   text-transform: uppercase;
   color: var(--muted);
-  padding: 10px 4px;
+  padding: 10px 2px;
   background: var(--bg-subtle);
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .dow:last-child {
@@ -994,7 +1109,7 @@ a:hover {
 
 .day {
   min-height: 68px;
-  padding: 6px;
+  padding: 6px 4px;
   font-size: 12px;
   font-weight: 600;
   color: var(--ink-secondary);
@@ -1006,6 +1121,9 @@ a:hover {
   align-items: flex-start;
   transition: background 0.14s ease;
   overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .day:nth-child(7n) {
@@ -1036,6 +1154,7 @@ a:hover {
   padding: 2px 5px;
   margin-top: 3px;
   width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
 }
 
@@ -1053,13 +1172,40 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .date-items-list {
   max-height: 240px;
   overflow-y: auto;
+  overflow-x: hidden;
   border-bottom: 1px solid var(--border-subtle);
   padding-bottom: 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.date-items-list .line {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.date-items-list .line .grow {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.date-items-list .line .grow b {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  line-height: 1.4 !important;
+  font-size: 13px;
+  color: var(--ink);
 }
 
 .note-section {
@@ -1136,33 +1282,123 @@ a:hover {
   gap: 14px;
 }
 
-.urgent {
+.urgent-tile {
   background: #ffffff;
   border: 1px solid var(--border);
-  border-left: 4px solid var(--danger);
+  border-top: 3px solid var(--danger);
   border-radius: var(--radius);
-  padding: 16px;
+  padding: 12px 14px;
   box-shadow: var(--shadow-xs);
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  min-height: 115px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  position: relative;
+  user-select: none;
 }
 
-.urgent h3 {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--ink);
+.urgent-tile:hover {
+  border-color: #cbd5e1;
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.urgent-tile.is-done {
+  border-top-color: var(--success);
+  background: #fbfdfc;
+  opacity: 0.85;
+}
+
+.urgent-tile-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
   margin-bottom: 8px;
 }
 
-.urgent p {
-  font-size: 12px;
-  color: var(--muted);
-  margin-bottom: 6px;
+.urgent-group-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #9a3412;
+  background: #ffedd5;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
 }
 
-.urgent .controls {
-  margin-top: auto;
-  padding-top: 10px;
+.urgent-complete-btn {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background: var(--bg-subtle);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  transition: all 0.14s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.urgent-complete-btn:hover {
+  background: #e2e8f0;
+  color: var(--ink);
+}
+
+.urgent-complete-btn.done {
+  background: var(--success-light);
+  color: var(--success);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.urgent-tile-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 10px;
+  word-break: break-word;
+}
+
+.urgent-tile-title.done-text {
+  text-decoration: line-through;
+  color: var(--muted-light);
+}
+
+.urgent-tile-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.urgent-due-text {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.urgent-view-more {
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 /* ==========================================================================
@@ -1734,17 +1970,30 @@ a:hover {
   
   /* Calendar Mobile: ZERO overflow */
   .cal-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) !important;
     gap: 14px;
+    min-width: 0;
+    max-width: 100%;
   }
   
-  .cal-card {
+  .cal-card, .cal-sidebar {
     padding: 10px;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
   }
   
+  .cal {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+  }
+
   .dow {
     font-size: 10px;
     padding: 7px 1px;
+    min-width: 0;
   }
   
   .day {
@@ -1753,6 +2002,7 @@ a:hover {
     font-size: 11.5px;
     align-items: center;
     justify-content: flex-start;
+    min-width: 0;
   }
   
   .event {
@@ -1760,10 +2010,45 @@ a:hover {
     padding: 1px 3px;
     border-radius: var(--radius-full);
     text-align: center;
+    max-width: 95%;
   }
   
-  /* KPI on Mobile */
-  .khead, .sub > .row, .check {
+  /* KPI & Sub-tasks on Mobile */
+  .subs-list {
+    padding: 2px 8px 12px;
+    gap: 6px;
+  }
+  
+  .sub-summary {
+    padding: 8px 10px;
+  }
+  
+  .sub-compact-row {
+    gap: 6px;
+  }
+  
+  .sub-compact-title {
+    font-size: 12px;
+  }
+  
+  .sub-count-badge {
+    font-size: 10px;
+    padding: 1px 6px;
+  }
+  
+  .sub-date {
+    display: none; /* Ẩn ngày ở hàng compact để nhường chỗ cho tiêu đề */
+  }
+  
+  .sub-mini-bar {
+    width: 36px;
+  }
+  
+  .sub-detail-body {
+    padding: 10px 12px;
+  }
+
+  .khead {
     flex-wrap: wrap;
     row-gap: 6px;
   }
@@ -1772,18 +2057,24 @@ a:hover {
     width: 65px;
   }
   
-  .sub {
-    margin: 0 8px 10px;
-    padding: 10px 12px;
-  }
-  
   .check > .grow {
     flex: 1 0 100%;
     line-height: 1.4;
   }
   
   .urgentgrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px;
+  }
+  
+  .urgent-tile {
+    padding: 10px;
+    min-height: 110px;
+  }
+  
+  .urgent-tile-title {
+    font-size: 12px;
+    margin-bottom: 6px;
   }
   
   .toast {
