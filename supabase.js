@@ -1,9 +1,16 @@
 import { config } from './config.js';
 
-const keys = ['kpis','subTasks','checkItems','urgentTasks','dailyNotes','leaves','resourceLinks'];
+const keys = ['kpis','subTasks','checkItems','urgentTasks','dailyNotes','leaves','resourceLinks','salaryRules','salaryBonuses'];
 let client, userId, snapshot, generation=0;
 const empty = () => Object.fromEntries(keys.map(key=>[key,[]]));
 const clone = value => JSON.parse(JSON.stringify(value));
+const defaultSalaryRules = [
+  { title: 'Lương cơ bản', keyword: '', amount: 10000000, type: 'base', active: true },
+  { title: 'Lớp Online', keyword: 'lớp online', amount: 100000, type: 'keyword', active: true },
+  { title: 'Lớp Offline theo lịch', keyword: 'offline theo lịch', amount: 300000, type: 'keyword', active: true },
+  { title: 'Lớp offline khách hàng book', keyword: 'khách hàng book', amount: 300000, type: 'keyword', active: true },
+  { title: 'Nghiên cứu sản phẩm mới', keyword: 'nghiên cứu sản phẩm mới', amount: 200000, type: 'keyword', active: true }
+];
 function normalize(data) {
   for (const key of keys) data[key]=(data[key]||[]).map(row=>Object.fromEntries(Object.entries(row).map(([k,v])=>[k,v===null?'':v])));
   return data;
@@ -16,7 +23,16 @@ async function rpc(name,params={}) {
   if(error)throw Error(error.message);
   return data;
 }
-async function load(period){snapshot=normalize(await rpc('flow_period',{p_period:period}));return clone(snapshot);}
+async function load(period){
+  snapshot=normalize(await rpc('flow_period',{p_period:period}));
+  if (!isDemoMode && snapshot.salaryRules.length === 0) {
+    try {
+      for (const rule of defaultSalaryRules) await rpc('flow_mutate', { p_table: 'salaryRules', p_action: 'add', p_id: null, p_patch: rule });
+      snapshot=normalize(await rpc('flow_period',{p_period:period}));
+    } catch {}
+  }
+  return clone(snapshot);
+}
 function restrict(data,period){
   data.kpis=data.kpis.filter(k=>k.period===period);
   const kids=new Set(data.kpis.map(k=>k.id));
@@ -28,6 +44,8 @@ function restrict(data,period){
   data.dailyNotes=data.dailyNotes.filter(n=>n.date.slice(0,7)===period);
   data.leaves=data.leaves.filter(l=>l.startDate.slice(0,7)<=period&&l.endDate.slice(0,7)>=period);
   data.urgentTasks=data.urgentTasks.filter(t=>t.status!=='Hoàn thành'||String(t.dueDate||t.createdAt).slice(0,7)===period);
+  data.salaryRules=data.salaryRules.filter(r=>r.active!==false);
+  data.salaryBonuses=data.salaryBonuses.filter(b=>b.period===period);
   return data;
 }
 async function mutate(table,action,id,patch,period){
@@ -44,7 +62,7 @@ async function mutate(table,action,id,patch,period){
   snapshot=restrict(normalize(snapshot),period);
   return clone(snapshot);
 }
-const types={Kpi:'kpis',SubTask:'subTasks',CheckItem:'checkItems',UrgentTask:'urgentTasks',Leave:'leaves',ResourceLink:'resourceLinks'};
+const types={Kpi:'kpis',SubTask:'subTasks',CheckItem:'checkItems',UrgentTask:'urgentTasks',Leave:'leaves',ResourceLink:'resourceLinks',SalaryRule:'salaryRules',SalaryBonus:'salaryBonuses'};
 function geminiSettings(){try{return JSON.parse(localStorage.getItem('flow-gemini:'+userId)||'{}');}catch{return {};}}
 async function gemini(name,args){
   let settings=geminiSettings();
@@ -68,9 +86,9 @@ function getInitialDemoData() {
   const currentDate = new Date().toISOString().slice(0, 10);
   return {
     kpis: [
-      { id: 'kpi-1', title: '01/ ĐÀO TẠO ĐẠI LÝ', period: currentPeriod, weight: 40, progress: 20, note: '', driveLink: '' },
-      { id: 'kpi-2', title: '02/ ĐÀO TẠO NỘI BỘ', period: currentPeriod, weight: 30, progress: 0, note: '', driveLink: '' },
-      { id: 'kpi-3', title: '03/ TRAINER LAMOUR', period: currentPeriod, weight: 30, progress: 0, note: '', driveLink: '' }
+      { id: 'kpi-1', title: '01/ ĐÀO TẠO ĐẠI LÝ', period: currentPeriod, weight: 0, progress: 20, note: '', driveLink: '', salaryEnabled: false, salaryAmount: 0 },
+      { id: 'kpi-2', title: '02/ ĐÀO TẠO NỘI BỘ', period: currentPeriod, weight: 0, progress: 0, note: '', driveLink: '', salaryEnabled: false, salaryAmount: 0 },
+      { id: 'kpi-3', title: '03/ TRAINER LAMOUR', period: currentPeriod, weight: 0, progress: 0, note: '', driveLink: '', salaryEnabled: true, salaryAmount: 1000000 }
     ],
     subTasks: [
       { id: 'sub-1', kpiId: 'kpi-1', title: 'Ứng dụng Liệu trình Mesotherapy không kim MesoFiller Pro trẻ hóa da toàn diện vùng mặt & Liệu trình TEG Some kết hợp Laser ánh sáng điều trị mụn', dueDate: currentDate, progress: 20, status: 'Đang làm', driveLink: '' }
@@ -94,6 +112,10 @@ function getInitialDemoData() {
     ],
     resourceLinks: [
       { id: 'lnk-1', entityType: 'KPI', entityId: 'kpi-1', label: 'Tài liệu Mesotherapy', url: 'https://drive.google.com' }
+    ],
+    salaryRules: defaultSalaryRules.map((rule, index) => ({ id: 'sal-' + index, ...rule })),
+    salaryBonuses: [
+      { id: 'bonus-demo', period: currentPeriod, title: 'Đào tạo Trainer Lamour', amount: 1000000, done: false, note: 'Khoản KPI riêng có thể bật khi hoàn thành.' }
     ]
   };
 }
@@ -193,9 +215,48 @@ export const backend = {
 
   async call(name, args, period) {
     if (name.includes('Gemini')) return gemini(name, args);
+    if (isDemoMode && name === 'apiExportData') {
+      const data = loadDemoData();
+      return {
+        flow_kpis: data.kpis || [],
+        flow_sub_tasks: data.subTasks || [],
+        flow_check_items: data.checkItems || [],
+        flow_urgent_tasks: data.urgentTasks || [],
+        flow_daily_notes: data.dailyNotes || [],
+        flow_leaves: data.leaves || [],
+        flow_resource_links: data.resourceLinks || [],
+        flow_salary_rules: data.salaryRules || [],
+        flow_salary_bonuses: data.salaryBonuses || []
+      };
+    }
+    if (isDemoMode && name === 'apiSalaryYear') {
+      const year = String(args[0] || '').slice(0, 4);
+      const data = loadDemoData();
+      const doneChecks = data.checkItems.filter(c => c.done && String(c.dueDate || '').slice(0, 4) === year).length;
+      const tripDays = data.leaves.filter(l => l.type === 'Đi công tác' && String(l.startDate).slice(0, 4) === year).length;
+      const leaveDays = data.leaves.filter(l => l.type === 'Nghỉ phép' && String(l.startDate).slice(0, 4) === year).length;
+      return { doneSubTasks: doneChecks, tripDays, leaveDays, totalSalary: 0 };
+    }
+    if (name === 'apiSalaryYear') return rpc('flow_salary_year', { p_year: args[0] });
     if (name === 'apiExportData') {
       if (isDemoMode) throw Error('Export database chỉ dùng khi đăng nhập tài khoản Supabase thật.');
-      return rpc('flow_export');
+      const opts = args?.[0] || {};
+      try { return await rpc('flow_export', { p_scope: opts.scope || 'all', p_period: opts.period || null, p_year: opts.year || null, p_tables: opts.tables || null }); }
+      catch (error) {
+        if (!/flow_export|schema cache|Could not find/i.test(error.message)) throw error;
+        const current = await rpc('flow_period', { p_period: period });
+        return {
+          flow_kpis: current.kpis || [],
+          flow_sub_tasks: current.subTasks || [],
+          flow_check_items: current.checkItems || [],
+          flow_urgent_tasks: current.urgentTasks || [],
+          flow_daily_notes: current.dailyNotes || [],
+          flow_leaves: current.leaves || [],
+          flow_resource_links: current.resourceLinks || [],
+          flow_salary_rules: current.salaryRules || [],
+          flow_salary_bonuses: current.salaryBonuses || []
+        };
+      }
     }
     if (name === 'apiDeleteData') {
       if (isDemoMode) throw Error('Xóa theo kỳ cần tài khoản Supabase thật để xác thực mật khẩu.');
@@ -207,8 +268,10 @@ export const backend = {
     if (isDemoMode) {
       const data = loadDemoData();
       if (name === 'getSystemData') {
+        data.salaryRules = data.salaryRules || getInitialDemoData().salaryRules;
+        data.salaryBonuses = data.salaryBonuses || [];
         data.period = period;
-        return clone(data);
+        return restrict(clone(data), period);
       }
       if (name === 'apiToggleCheckItem') {
         const item = data.checkItems.find(c => c.id === args[0]);
@@ -239,7 +302,7 @@ export const backend = {
         return clone(data);
       }
       if (name === 'apiAddKpi') {
-        data.kpis.push({ id: 'kpi-' + Date.now(), title: args[0], period: args[1], weight: Number(args[2]) || 0, progress: 0, note: '', driveLink: '' });
+        data.kpis.push({ id: 'kpi-' + Date.now(), title: args[0].title, period: args[0].period, weight: 0, progress: 0, note: '', driveLink: '', salaryEnabled: !!args[0].salaryEnabled, salaryAmount: Number(args[0].salaryAmount) || 0 });
       } else if (name === 'apiAddSubTask') {
         data.subTasks.push({ id: 'sub-' + Date.now(), kpiId: args[0], title: args[1], dueDate: args[2], progress: 0, status: 'Chưa làm', driveLink: '' });
       } else if (name === 'apiAddCheckItem') {
@@ -248,6 +311,10 @@ export const backend = {
         data.urgentTasks.push({ id: 'urg-' + Date.now(), title: args[0].title, dueDate: args[0].dueDate, kpiGroup: args[0].kpiGroup || 'Đột xuất', status: 'Chưa làm' });
       } else if (name === 'apiAddLeave') {
         data.leaves.push({ id: 'lea-' + Date.now(), ...args[0] });
+      } else if (name === 'apiAddSalaryRule') {
+        data.salaryRules.push({ id: 'rule-' + Date.now(), ...args[0], amount: Number(args[0].amount) || 0, active: true });
+      } else if (name === 'apiAddSalaryBonus') {
+        data.salaryBonuses.push({ id: 'bonus-' + Date.now(), ...args[0], amount: Number(args[0].amount) || 0, done: !!args[0].done });
       } else if (name.startsWith('apiUpdate')) {
         const table = types[name.slice('apiUpdate'.length)];
         const item = data[table]?.find(row => row.id === args[0]);
@@ -269,6 +336,10 @@ export const backend = {
           data.urgentTasks = data.urgentTasks.filter(t => t.id !== id);
         } else if (name === 'apiDeleteLeave') {
           data.leaves = data.leaves.filter(l => l.id !== id);
+        } else if (name === 'apiDeleteSalaryRule') {
+          data.salaryRules = data.salaryRules.filter(r => r.id !== id);
+        } else if (name === 'apiDeleteSalaryBonus') {
+          data.salaryBonuses = data.salaryBonuses.filter(b => b.id !== id);
         }
       }
       demoData = data;
@@ -286,7 +357,7 @@ export const backend = {
     let patch = args[1], id = args[0];
     if (action === 'Add') {
       id = null;
-      patch = type === 'Kpi' ? { title: args[0], period: args[1], weight: Number(args[2]) } : type === 'SubTask' ? { kpiId: args[0], title: args[1], dueDate: args[2] } : type === 'CheckItem' ? { subTaskId: args[0], title: args[1], dueDate: args[2] } : args[0];
+      patch = type === 'Kpi' ? args[0] : type === 'SubTask' ? { kpiId: args[0], title: args[1], dueDate: args[2] } : type === 'CheckItem' ? { subTaskId: args[0], title: args[1], dueDate: args[2] } : args[0];
     }
     return mutate(types[type], action.toLowerCase(), id, patch, period);
   }

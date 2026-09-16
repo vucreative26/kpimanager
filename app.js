@@ -20,7 +20,9 @@ import { backend } from './supabase.js';
     urgentTasks: [],
     dailyNotes: [],
     leaves: [],
-    resourceLinks: []
+    resourceLinks: [],
+    salaryRules: [],
+    salaryBonuses: []
   };
   var P = month(),
     D = date(),
@@ -78,6 +80,9 @@ import { backend } from './supabase.js';
   function p(x) {
     return Math.max(0, Math.min(100, Number(x) || 0));
   }
+  function money(value) {
+    return (Number(value) || 0).toLocaleString('vi-VN') + ' đ';
+  }
   function b(x, done) {
     return '<div class="bar ' + (done ? 'done' : '') + '"><i style="width:' + p(x) + '%"></i></div>';
   }
@@ -94,7 +99,7 @@ import { backend } from './supabase.js';
     return result;
   }
   function accept(data) {
-    ['kpis', 'subTasks', 'checkItems', 'urgentTasks', 'dailyNotes', 'leaves', 'resourceLinks'].forEach(function (key) {
+    ['kpis', 'subTasks', 'checkItems', 'urgentTasks', 'dailyNotes', 'leaves', 'resourceLinks', 'salaryRules', 'salaryBonuses'].forEach(function (key) {
       if (!data || !Array.isArray(data[key])) throw Error('Dữ liệu trả về không hợp lệ: ' + key);
     });
     S = data;
@@ -191,7 +196,8 @@ import { backend } from './supabase.js';
       kpi: tree,
       calendar: cal,
       report: report,
-      urgent: urgent
+      urgent: urgent,
+      salary: salary
     })[view]();
   }
   function focusWorkItem(item) {
@@ -222,7 +228,8 @@ import { backend } from './supabase.js';
       kpi: ['KPI công việc', 'Lập kế hoạch và theo dõi tiến độ'],
       calendar: ['Lịch & nghỉ phép', 'Công việc, deadline và lịch cá nhân'],
       report: ['Báo cáo', 'Tổng hợp kết quả theo kỳ'],
-      urgent: ['Việc gấp', 'Theo dõi yêu cầu phát sinh']
+      urgent: ['Việc gấp', 'Theo dõi yêu cầu phát sinh'],
+      salary: ['Lương tháng', 'Tổng hợp lương, KPI thưởng và thống kê năm']
     };
     e('title').textContent = labels[v][0];
     e('sub').textContent = labels[v][1];
@@ -259,11 +266,11 @@ import { backend } from './supabase.js';
     e('count').textContent = K.length + ' KPI trong ' + P;
     e('tree').innerHTML = K.length ? K.map(function (k, i) {
       var subs = index.subs.get(k.id) || [];
-      return '<details class="kpi" data-kpi="' + esc(k.id) + '" ' + ((expanded.has(k.id) ? expanded.get(k.id) : i === 0) ? 'open' : '') + '><summary><div class="khead"><b>' + esc(k.title) + '</b><small>' + p(k.weight) + '% trọng số</small>' + b(k.progress, true) + controls('KPI', k.id) + '<button type="button" class="mini" data-sub="' + esc(k.id) + '">+ Sub-task</button></div></summary>' + links('KPI', k.id, k.driveLink) + subs.map(function (s) {
+      return '<details class="kpi" data-kpi="' + esc(k.id) + '" ' + ((expanded.has(k.id) ? expanded.get(k.id) : i === 0) ? 'open' : '') + '><summary><div class="khead"><b>' + esc(k.title) + '</b>' + b(k.progress, true) + (k.salaryEnabled ? '<small>' + money(k.salaryAmount) + '</small>' : '') + controls('KPI', k.id) + '<button type="button" class="mini" data-sub="' + esc(k.id) + '">+ Sub-task</button></div></summary>' + links('KPI', k.id, k.driveLink) + subs.map(function (s) {
         var checks = index.checks.get(s.id) || [];
-        return '<div class="sub" data-sub-row="' + esc(s.id) + '"><div class="row"><b class="grow">' + esc(s.title) + '</b><small>' + esc(s.dueDate) + '</small><button class="mini" data-ask="' + esc(s.id) + '">Hỏi Gemini</button>' + controls('SUBTASK', s.id) + '<button class="mini" data-ca="' + esc(s.id) + '">+ Việc</button></div>' + b(s.progress, isdone(s)) + links('SUBTASK', s.id, s.driveLink) + '<div class="checks">' + (checks.length ? checks.map(function (c) {
+        return '<details class="sub" data-sub-row="' + esc(s.id) + '"><summary class="sub-summary"><b class="grow">' + esc(s.title) + '</b><small>' + esc(s.dueDate || 'Chưa có hạn') + '</small>' + b(s.progress, isdone(s)) + '</summary><div class="sub-details"><div class="row sub-actions"><button class="mini" data-ask="' + esc(s.id) + '">Hỏi Gemini</button>' + controls('SUBTASK', s.id) + '<button class="mini" data-ca="' + esc(s.id) + '">+ Việc</button></div>' + links('SUBTASK', s.id, s.driveLink) + '<div class="checks">' + (checks.length ? checks.map(function (c) {
           return '<div class="check" data-check-row="' + esc(c.id) + '"><label class="grow"><input type="checkbox" data-check="' + esc(c.id) + '" ' + (isdone(c) ? 'checked' : '') + '> ' + esc(c.title) + '</label><small>' + esc(c.dueDate) + '</small>' + controls('CHECK', c.id) + '</div>' + links('CHECK', c.id);
-        }).join('') : empty('Chưa có đầu việc.')) + '</div></div>';
+        }).join('') : empty('Chưa có đầu việc.')) + '</div></div></details>';
       }).join('') + '</details>';
     }).join('') : empty('Chưa có KPI phù hợp.');
     e('tree').scrollTop = scroll;
@@ -398,7 +405,9 @@ import { backend } from './supabase.js';
     KPI: ['kpis', 'Kpi'],
     SUBTASK: ['subTasks', 'SubTask'],
     CHECK: ['checkItems', 'CheckItem'],
-    URGENT: ['urgentTasks', 'UrgentTask']
+    URGENT: ['urgentTasks', 'UrgentTask'],
+    SALARY_RULE: ['salaryRules', 'SalaryRule'],
+    SALARY_BONUS: ['salaryBonuses', 'SalaryBonus']
   };
   function edit(type, id) {
     var item = S[config[type][0]].find(function (x) {
@@ -406,7 +415,9 @@ import { backend } from './supabase.js';
     });
     if (!item) return;
     var fields = [field('title', 'Tên', item.title, type === 'URGENT' ? 'textarea' : 'text')];
-    if (type === 'KPI') fields.push(field('period', 'Kỳ', item.period, 'month'), field('weight', 'Trọng số (%)', item.weight, 'number'), field('note', 'Ghi chú', item.note, 'textarea'));else fields.push(field('dueDate', 'Hạn', item.dueDate, 'date'));
+    if (type === 'SALARY_RULE') fields.push(field('type', 'Loại dòng lương', item.type || 'keyword', 'select', ['base','keyword','tax']), field('keyword', 'Từ khóa tính số lượng', item.keyword || ''), field('amount', 'Số tiền', item.amount || 0, 'number'), field('active', 'Đang áp dụng', item.active !== false, 'checkbox'));
+    else if (type === 'SALARY_BONUS') fields.push(field('period', 'Tháng', item.period || P, 'month'), field('amount', 'Số tiền', item.amount || 0, 'number'), field('done', 'Tính vào lương', !!item.done, 'checkbox'), field('note', 'Ghi chú', item.note || '', 'textarea'));
+    else if (type === 'KPI') fields.push(field('period', 'Kỳ', item.period, 'month'), field('salaryEnabled', 'Tính thêm tiền khi KPI hoàn thành', !!item.salaryEnabled, 'checkbox'), field('salaryAmount', 'Số tiền KPI riêng', item.salaryAmount || 0, 'number'), field('note', 'Ghi chú', item.note, 'textarea'));else fields.push(field('dueDate', 'Hạn', item.dueDate, 'date'));
     if (type === 'CHECK') fields.push(field('note', 'Ghi chú', item.note, 'textarea'), field('done', 'Đã hoàn thành', isdone(item), 'checkbox'));else {
       var derived = type === 'KPI' ? (index.subs.get(id) || []).length : type === 'SUBTASK' ? (index.checks.get(id) || []).length : 0;
       if (type !== 'URGENT' && !derived) fields.push(field('progress', 'Tiến độ (%) — trạng thái tự tính', item.progress, 'number'));
@@ -418,8 +429,13 @@ import { backend } from './supabase.js';
     });
   }
   function addK() {
-    form('Tạo KPI mới', [field('title', 'Tên KPI', ''), field('period', 'Kỳ', P, 'month'), field('weight', 'Trọng số (%)', 0, 'number')], function (d) {
-      save('apiAddKpi', [d.title, d.period, d.weight]);
+    form('Tạo KPI mới', [field('title', 'Tên KPI', ''), field('period', 'Kỳ', P, 'month'), field('salaryEnabled', 'Tính thêm tiền khi KPI hoàn thành', false, 'checkbox'), field('salaryAmount', 'Số tiền KPI riêng', 0, 'number')], function (d) {
+      save('apiAddKpi', [{
+        title: d.title,
+        period: d.period,
+        salaryEnabled: !!d.salaryEnabled,
+        salaryAmount: Number(d.salaryAmount) || 0
+      }]);
     });
   }
   function addU() {
@@ -434,9 +450,30 @@ import { backend } from './supabase.js';
       save('apiAddLeave', [d]);
     });
   }
+  function addSalaryRule() {
+    form('Thêm dòng lương', [field('title', 'Tên dòng lương', ''), field('type', 'Loại', 'keyword', 'select', ['base','keyword','tax']), field('keyword', 'Từ khóa tính số lượng', ''), field('amount', 'Số tiền', 0, 'number')], function(d){
+      save('apiAddSalaryRule', [{ title: d.title, type: d.type, keyword: d.keyword, amount: Number(d.amount) || 0, active: true }]);
+    });
+  }
+  function addSalaryBonus() {
+    form('Thêm KPI thưởng riêng', [field('title', 'Tên KPI thưởng', ''), field('period', 'Tháng', P, 'month'), field('amount', 'Số tiền', 0, 'number'), field('done', 'Tính vào lương', false, 'checkbox'), field('note', 'Ghi chú', '', 'textarea')], function(d){
+      save('apiAddSalaryBonus', [{ title: d.title, period: d.period, amount: Number(d.amount) || 0, done: !!d.done, note: d.note }]);
+    });
+  }
   function leaveRange(l) {
     return l.startDate + (l.startTime ? ' ' + l.startTime.slice(0,5) : '') + ' → ' + l.endDate + (l.endTime ? ' ' + l.endTime.slice(0,5) : ' · Cả ngày');
   }
+  var exportTables = [
+    ['flow_kpis', 'KPI'],
+    ['flow_sub_tasks', 'Sub-task'],
+    ['flow_check_items', 'Đầu việc nhỏ'],
+    ['flow_urgent_tasks', 'Việc gấp'],
+    ['flow_daily_notes', 'Ghi chú ngày'],
+    ['flow_leaves', 'Lịch nghỉ/công tác'],
+    ['flow_resource_links', 'Link tài liệu'],
+    ['flow_salary_rules', 'Cấu hình lương'],
+    ['flow_salary_bonuses', 'KPI thưởng lương']
+  ];
   e('deleteData').onclick = function () {
     if (pending) return toast('Chờ đồng bộ xong trước khi xóa.', true);
     form('Chọn phạm vi xóa', [field('scope', 'Xóa theo', 'Ngày', 'select', ['Ngày','Tháng'])], function(choice){
@@ -451,20 +488,51 @@ import { backend } from './supabase.js';
       e('form').querySelector('[name="password"]').autocomplete = 'current-password';
     });
   };
-  e('exportData').onclick = async function () {
-    var button = e('exportData'); button.disabled = true;
-    try {
-      await queue;
-      var data = await api('apiExportData');
-      var sql = buildExportSQL(data);
-      var url = URL.createObjectURL(new Blob([sql], {type:'text/plain;charset=utf-8'}));
-      var a = document.createElement('a'); a.href = url; a.download = 'Flow-KPI-all-' + date() + '.sql';
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(function(){URL.revokeObjectURL(url);},1000);
-      toast('Đã xuất tất cả các tháng. Xem hướng dẫn đầu file SQL để nhập database mới.');
-    } catch(error) { toast(error.message, true); }
-    finally { button.disabled = false; }
+  e('exportData').onclick = function () {
+    var fields = [field('scope', 'Phạm vi', 'all', 'select', ['all','month','year'])].concat(exportTables.map(function(t){
+      return field(t[0], t[1], true, 'checkbox');
+    }));
+    form('Export data tùy chỉnh', fields, async function (values) {
+      var button = e('form').querySelector('.actions button:last-child');
+      button.disabled = true;
+      try {
+        await queue;
+        var selected = exportTables.filter(function(t){return values[t[0]];}).map(function(t){return t[0];});
+        if (!selected.length) return toast('Chọn ít nhất một nhóm dữ liệu để xuất.', true);
+        var opts = { scope: values.scope, period: P, year: P.slice(0,4), tables: selected };
+        var data = filterExportData(await api('apiExportData', [opts]), opts);
+        var sql = buildExportSQL(data);
+        downloadText(sql, 'Flow-KPI-' + values.scope + '-' + date() + '.sql');
+        close();
+        toast(values.scope === 'all' ? 'Đã xuất dữ liệu đã chọn.' : 'Đã xuất theo phạm vi đang chọn.');
+      } catch(error) { toast(error.message, true); }
+      finally { if (button.isConnected) button.disabled = false; }
+    });
+    e('form').querySelector('.actions button:last-child').textContent = 'Tải file SQL';
   };
+  function downloadText(text, filename) {
+    var url = URL.createObjectURL(new Blob([text], {type:'text/plain;charset=utf-8'}));
+    var a = document.createElement('a'); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){URL.revokeObjectURL(url);},1000);
+  }
+  function filterExportData(data, opts) {
+    var result = {};
+    exportTables.forEach(function(t){ result[t[0]] = opts.tables.includes(t[0]) ? (data[t[0]] || []) : []; });
+    function inScope(row, column) {
+      if (opts.scope === 'all') return true;
+      var value = String(row[column] || row.createdAt || '');
+      return opts.scope === 'year' ? value.slice(0,4) === opts.year : value.slice(0,7) === opts.period;
+    }
+    if (opts.scope !== 'all') result.flow_kpis = result.flow_kpis.filter(function(r){return opts.scope === 'year' ? String(r.period).slice(0,4) === opts.year : r.period === opts.period;});
+    result.flow_sub_tasks = result.flow_sub_tasks.filter(function(r){return inScope(r, 'dueDate');});
+    result.flow_check_items = result.flow_check_items.filter(function(r){return inScope(r, 'dueDate');});
+    result.flow_urgent_tasks = result.flow_urgent_tasks.filter(function(r){return inScope(r, 'dueDate');});
+    result.flow_daily_notes = result.flow_daily_notes.filter(function(r){return inScope(r, 'date');});
+    result.flow_leaves = result.flow_leaves.filter(function(r){return opts.scope === 'all' || (opts.scope === 'year' ? String(r.startDate).slice(0,4) === opts.year || String(r.endDate).slice(0,4) === opts.year : String(r.startDate).slice(0,7) <= opts.period && String(r.endDate).slice(0,7) >= opts.period);});
+    result.flow_salary_bonuses = result.flow_salary_bonuses.filter(function(r){return opts.scope === 'all' || (opts.scope === 'year' ? String(r.period).slice(0,4) === opts.year : r.period === opts.period);});
+    return result;
+  }
   function buildExportSQL(data) {
     // Encode as a SQL string; no data can terminate the surrounding DO block.
     var payload = JSON.stringify(data).replace(/'/g,"''").replace(/\$/g,'\\u0024');
@@ -484,7 +552,7 @@ begin
   if not exists(select 1 from auth.users where id=target_user) then
     raise exception 'Thay target_user bằng UUID tài khoản đích trước khi nhập.';
   end if;
-  foreach tbl in array array['flow_kpis','flow_sub_tasks','flow_check_items','flow_urgent_tasks','flow_daily_notes','flow_leaves','flow_resource_links'] loop
+  foreach tbl in array array['flow_kpis','flow_sub_tasks','flow_check_items','flow_urgent_tasks','flow_daily_notes','flow_leaves','flow_resource_links','flow_salary_rules','flow_salary_bonuses'] loop
     for row_data in select value from jsonb_array_elements(payload->tbl) loop
       row_data := (row_data - 'entityType' - 'entityId') || jsonb_build_object('user_id',target_user);
       select string_agg(format('%I',key),',' order by key), string_agg(format('r.%I',key),',' order by key) into cols,vals from jsonb_each(row_data);
@@ -571,6 +639,7 @@ commit;
       return ask('Hãy đề xuất 4–6 đầu mục nhỏ để hoàn thành sub-task này.');
     }
     if (d.eu) return edit('URGENT', d.eu);
+    if (d.cu) return save('apiUpdateUrgentTask', [d.cu, { status: 'Hoàn thành' }]);
     if (d.du || d.dl) {
       if (confirm('Xóa mục này?')) save(d.du ? 'apiDeleteUrgentTask' : 'apiDeleteLeave', [d.du || d.dl]);
       return;
@@ -616,6 +685,8 @@ commit;
   e('kpiTop').onclick = e('kpiAdd').onclick = addK;
   e('urgentTop').onclick = e('urgentAdd').onclick = addU;
   e('leaveTop').onclick = e('leaveAdd').onclick = addL;
+  e('salaryRuleAdd').onclick = addSalaryRule;
+  e('salaryBonusAdd').onclick = addSalaryBonus;
   e('search').oninput = function (event) {
     Q = event.target.value.trim().toLocaleLowerCase('vi');
     clearTimeout(searchTimer);
@@ -729,8 +800,8 @@ commit;
     if(user===signedUser)return;
     signedUser=user;clearInterval(pollTimer);
     drafts.clear();expanded.clear();ctx='';close();ready=false;
-    S={kpis:[],subTasks:[],checkItems:[],urgentTasks:[],dailyNotes:[],leaves:[],resourceLinks:[]};
-    ['metrics','today','late','leaves','progress','health','tree','cal','dateItems','doneList','pendingList','urgentGrid'].forEach(function(id){e(id).replaceChildren();});
+    S={kpis:[],subTasks:[],checkItems:[],urgentTasks:[],dailyNotes:[],leaves:[],resourceLinks:[],salaryRules:[],salaryBonuses:[]};
+    ['metrics','today','late','leaves','progress','health','tree','cal','dateItems','doneList','pendingList','urgentGrid','salaryMetrics','salaryLines','salaryYear','salaryRules','salaryBonuses'].forEach(function(id){e(id).replaceChildren();});
     e('note').value='';e('search').value='';Q='';
     e('msgs').innerHTML='<div class="bubble">Chọn sub-task hoặc nhập câu hỏi cho Gemini.</div>';
     document.querySelectorAll('.view').forEach(function(node){node.classList.remove('active');});
@@ -808,9 +879,73 @@ commit;
     e('doneList').innerHTML = a.length ? a.map(it).join('') : empty('Chưa có việc hoàn thành.');
     e('pendingList').innerHTML = pending.length ? pending.map(it).join('') : empty('Không còn việc cần xử lý.');
   }
+  function salaryCalc() {
+    var checks = ss().flatMap(function(s){
+      return (index.checks.get(s.id)||[]).map(function(c){return Object.assign({parentTitle:s.title}, c);});
+    });
+    var doneChecks = checks.filter(isdone);
+    var lines = [];
+    var total = 0;
+    (S.salaryRules || []).filter(function(r){return r.active !== false;}).forEach(function(rule){
+      var amount = Number(rule.amount) || 0;
+      if (rule.type === 'base') {
+        total += amount;
+        lines.push({ title: rule.title || 'Lương cơ bản', qty: 1, amount: amount, total: amount });
+      } else if (rule.type === 'tax') {
+        total -= amount;
+        lines.push({ title: rule.title || 'Thuế TNCN', qty: 1, amount: -amount, total: -amount });
+      } else {
+        var keyword = String(rule.keyword || rule.title || '').toLocaleLowerCase('vi');
+        var qty = keyword ? doneChecks.filter(function(c){
+          return (String(c.title || '') + ' ' + String(c.parentTitle || '')).toLocaleLowerCase('vi').includes(keyword);
+        }).length : 0;
+        if (qty || amount) {
+          total += qty * amount;
+          lines.push({ title: rule.title, qty: qty, amount: amount, total: qty * amount });
+        }
+      }
+    });
+    ks().filter(function(k){return k.salaryEnabled && isdone(k);}).forEach(function(k){
+      var amount = Number(k.salaryAmount) || 0;
+      total += amount;
+      lines.push({ title: 'KPI: ' + k.title, qty: 1, amount: amount, total: amount });
+    });
+    (S.salaryBonuses || []).filter(function(b){return b.done;}).forEach(function(b){
+      var amount = Number(b.amount) || 0;
+      total += amount;
+      lines.push({ title: b.title, qty: 1, amount: amount, total: amount });
+    });
+    return { lines: lines, total: total, doneChecks: doneChecks.length, doneSubTasks: ss().filter(isdone).length, trips: leaveDays('Đi công tác'), leaves: leaveDays('Nghỉ phép') };
+  }
+  function leaveDays(type) {
+    return (S.leaves || []).filter(function(l){return l.type === type;}).reduce(function(sum,l){
+      return sum + Math.max(1, Math.round(((new Date(l.endDate)) - (new Date(l.startDate))) / 86400000) + 1);
+    }, 0);
+  }
+  function salaryLine(row) {
+    return '<div class="ritem salary-line"><b>' + esc(row.title) + '</b><span class="small">' + row.qty + ' × ' + money(row.amount) + '</span><strong>' + money(row.total) + '</strong></div>';
+  }
+  function salary() {
+    var calc = salaryCalc();
+    e('salarySummary').textContent = P + ' · tạm tính ' + money(calc.total);
+    e('salaryMetrics').innerHTML = '<div class="metric green"><label>Lương tháng</label><b>' + money(calc.total) + '</b><small>' + P + '</small></div><div class="metric blue"><label>Sub-task xong</label><b>' + calc.doneSubTasks + '</b><small>' + calc.doneChecks + ' đầu việc nhỏ đã tick</small></div><div class="metric amber"><label>Công tác</label><b>' + calc.trips + '</b><small>ngày</small></div><div class="metric purple"><label>Nghỉ phép</label><b>' + calc.leaves + '</b><small>ngày</small></div>';
+    e('salaryLines').innerHTML = calc.lines.length ? calc.lines.map(salaryLine).join('') : empty('Chưa có dòng lương.');
+    e('salaryRules').innerHTML = (S.salaryRules || []).length ? S.salaryRules.map(function(r){
+      return '<div class="ritem"><b>' + esc(r.title) + '</b><span class="small">' + esc(r.type || 'keyword') + (r.keyword ? ' · ' + esc(r.keyword) : '') + '</span><strong>' + money(r.amount) + '</strong><div class="row"><button class="mini" data-action="edit" data-type="SALARY_RULE" data-id="' + esc(r.id) + '">Sửa</button><button class="mini red" data-action="delete" data-type="SALARY_RULE" data-id="' + esc(r.id) + '">Xóa</button></div></div>';
+    }).join('') : empty('Chưa có cấu hình lương.');
+    e('salaryBonuses').innerHTML = (S.salaryBonuses || []).length ? S.salaryBonuses.map(function(bn){
+      return '<div class="ritem"><b>' + esc(bn.title) + '</b><span class="small">' + (bn.done ? 'Đã tính' : 'Chưa tính') + ' · ' + esc(bn.period) + '</span><strong>' + money(bn.amount) + '</strong><div class="row"><button class="mini" data-action="edit" data-type="SALARY_BONUS" data-id="' + esc(bn.id) + '">Sửa</button><button class="mini red" data-action="delete" data-type="SALARY_BONUS" data-id="' + esc(bn.id) + '">Xóa</button></div></div>';
+    }).join('') : empty('Chưa có KPI thưởng riêng.');
+    e('salaryYear').innerHTML = empty('Đang tính tổng kết năm...');
+    api('apiSalaryYear', [P.slice(0,4)]).then(function(y){
+      e('salaryYear').innerHTML = '<div class="ritem"><b>' + esc(P.slice(0,4)) + '</b><span class="small">Sub-task: ' + (y.doneSubTasks || 0) + ' · Công tác: ' + (y.tripDays || 0) + ' ngày · Nghỉ: ' + (y.leaveDays || 0) + ' ngày</span><strong>' + money(y.totalSalary || calc.total) + '</strong></div>';
+    }).catch(function(){
+      e('salaryYear').innerHTML = '<div class="ritem"><b>' + esc(P.slice(0,4)) + '</b><span class="small">Cần chạy schema.sql mới để tổng kết đủ cả năm trên Supabase.</span><strong>' + money(calc.total) + '</strong></div>';
+    });
+  }
   function urgent() {
     e('urgentGrid').innerHTML = S.urgentTasks.length ? S.urgentTasks.map(function (x) {
-      return '<div class="urgent"><button class="urgent-detail" data-eu="' + esc(x.id) + '"><h3>' + esc(x.title) + '</h3><p>Hạn: ' + esc(x.dueDate || 'Chưa đặt') + '</p><p>Nhóm: ' + esc(x.kpiGroup || 'Đột xuất') + ' · ' + esc(x.status) + '</p><span class="small">Chi tiết / Chỉnh sửa ›</span></button><button class="mini red" data-du="' + esc(x.id) + '">Xóa</button></div>';
+      return '<div class="urgent"><div class="urgent-detail"><h3>' + esc(x.title) + '</h3><p>Hạn: ' + esc(x.dueDate || 'Chưa đặt') + '</p><p>' + esc(x.kpiGroup || 'Đột xuất') + ' · ' + esc(x.status) + '</p></div><div class="urgent-actions"><button class="mini" data-eu="' + esc(x.id) + '">Chỉnh sửa</button><button class="mini ok" data-cu="' + esc(x.id) + '">Hoàn thành</button><button class="mini red" data-du="' + esc(x.id) + '">Xóa</button></div></div>';
     }).join('') : empty('Chưa có việc gấp.');
   }
 })();
