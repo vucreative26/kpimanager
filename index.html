@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./styles.css?v=4">
+<link rel="stylesheet" href="./styles.css">
 </head>
 <body>
 <section id="authPanel" class="auth-panel">
@@ -75,10 +75,6 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
         <span>Đồng bộ dữ liệu</span>
       </button>
-      <button id="dataManageBtn" class="sync">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-        <span>Quản lý dữ liệu</span>
-      </button>
       <button id="logout" class="nav logout-btn">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
         <span>Đăng xuất</span>
@@ -99,9 +95,6 @@
           <div class="mobile-top-actions">
             <button id="mobileSyncBtn" class="top-action-btn" type="button" title="Đồng bộ">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-            </button>
-            <button id="mobileDataBtn" class="top-action-btn" type="button" title="Quản lý & Xuất/Xóa dữ liệu">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
             </button>
             <button id="mobileAiBtn" class="top-action-btn ai-badge-btn" type="button" title="Trợ lý Gemini">
               ✦ AI
@@ -131,6 +124,7 @@
       </div>
     </header>
 
+    <div class="data-tools"><button id="deleteData" class="btn danger">Xóa dữ liệu theo kỳ</button><button id="exportData" class="btn ghost">Export data · Toàn bộ</button></div>
     <section id="dashboard" class="view active">
       <div id="metrics" class="metrics"></div>
       <div class="grid g3">
@@ -215,16 +209,10 @@
     <section id="report" class="view">
       <div class="filter">
         <span id="summary" class="small report-summary"></span>
-        <div style="display:inline-flex; gap:8px; align-items:center;">
-          <button id="csv" class="btn ghost">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            Xuất CSV
-          </button>
-          <button id="dataManageReportBtn" class="btn ghost">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-            Quản lý dữ liệu & Sao lưu
-          </button>
-        </div>
+        <button id="csv" class="btn ghost">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Xuất CSV
+        </button>
       </div>
       <div class="report">
         <div class="card">
@@ -284,6 +272,6 @@
 <div id="modal"></div>
 <div id="toast"></div>
 
-<script type="module" src="./app.js?v=4"></script>
+<script type="module" src="./app.js"></script>
 </body>
 </html>
