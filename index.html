@@ -2,159 +2,275 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Flow KPI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-<section id="authPanel" class="auth-panel"><form id="loginForm" class="dialog"><h1>Flow KPI</h1><p>Dùng cùng một tài khoản trên điện thoại và hai laptop.</p><label class="field">Email<input id="email" type="email" autocomplete="username" required></label><label class="field">Mật khẩu<input id="password" type="password" autocomplete="current-password" required></label><button id="loginButton" class="btn primary">Đăng nhập</button><p id="authMessage" role="status"></p></form></section>
-<div id="startupStatus" role="status" style="position:fixed;left:16px;bottom:16px;z-index:20;max-width:calc(100vw - 32px);padding:12px 16px;background:#fff4ce;color:#463500;border:1px solid #d5b956;border-radius:8px;font:14px Arial">Đang khởi động Flow KPI…</div>
+<section id="authPanel" class="auth-panel">
+  <form id="loginForm" class="dialog auth-card">
+    <div class="auth-brand">
+      <div class="brand-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+      </div>
+      <h1>Flow KPI</h1>
+    </div>
+    <p class="auth-sub">Dùng cùng một tài khoản trên điện thoại và hai laptop.</p>
+    <label class="field">
+      <span>Email</span>
+      <input id="email" type="email" autocomplete="username" placeholder="name@company.com" required>
+    </label>
+    <label class="field">
+      <span>Mật khẩu</span>
+      <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required>
+    </label>
+    <button id="loginButton" class="btn primary btn-block">Đăng nhập</button>
+    <button id="demoButton" type="button" class="btn ghost btn-block" style="margin-top: 10px;">✦ Dùng thử ngay (Chế độ Demo)</button>
+    <p id="authMessage" role="status"></p>
+  </form>
+</section>
+
+<div id="startupStatus" role="status" class="startup-status">Đang khởi động Flow KPI…</div>
+
 <div class="app" id="application" hidden>
-<aside class="side">
-<div class="brand">Flow KPI<small>Personal work system</small>
+  <aside class="side">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-title">Flow KPI</span>
+        <small class="brand-desc">Personal work system</small>
+      </div>
+    </div>
+    
+    <nav class="nav-list">
+      <button class="nav active" data-v="dashboard">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>
+        <span class="nav-label">Tổng quan</span>
+      </button>
+      <button class="nav" data-v="kpi">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+        <span class="nav-label">KPI công việc</span>
+      </button>
+      <button class="nav" data-v="calendar">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg>
+        <span class="nav-label">Lịch & nghỉ phép</span>
+      </button>
+      <button class="nav" data-v="report">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
+        <span class="nav-label">Báo cáo</span>
+      </button>
+      <button class="nav" data-v="urgent">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        <span class="nav-label">Việc gấp</span>
+      </button>
+    </nav>
+
+    <div class="side-footer">
+      <button id="sync" class="sync">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        <span>Đồng bộ dữ liệu</span>
+      </button>
+      <button id="logout" class="nav logout-btn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
+        <span>Đăng xuất</span>
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="head">
+      <div class="head-left">
+        <div class="mobile-header-bar">
+          <div class="mobile-brand">
+            <div class="brand-icon small">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <span class="mobile-brand-title">Flow KPI</span>
+          </div>
+          <div class="mobile-top-actions">
+            <button id="mobileSyncBtn" class="top-action-btn" type="button" title="Đồng bộ">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            </button>
+            <button id="mobileAiBtn" class="top-action-btn ai-badge-btn" type="button" title="Trợ lý Gemini">
+              ✦ AI
+            </button>
+            <button id="mobileLogoutBtn" class="top-action-btn" type="button" title="Đăng xuất">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
+            </button>
+          </div>
+        </div>
+        <div class="head-titles">
+          <h1 id="title">Tổng quan KPI</h1>
+          <p id="sub">Bức tranh công việc trong tháng</p>
+        </div>
+      </div>
+      
+      <div class="tools">
+        <div class="period">
+          <button id="prev" aria-label="Tháng trước">‹</button>
+          <input id="period" type="month">
+          <button id="next" aria-label="Tháng sau">›</button>
+        </div>
+        <div class="tools-buttons">
+          <button id="leaveTop" class="btn ghost">+ Nghỉ phép</button>
+          <button id="urgentTop" class="btn danger">+ Việc gấp</button>
+          <button id="kpiTop" class="btn primary">+ KPI mới</button>
+        </div>
+      </div>
+    </header>
+
+    <section id="dashboard" class="view active">
+      <div id="metrics" class="metrics"></div>
+      <div class="grid g3">
+        <div class="card list-card">
+          <div class="card-header">
+            <h2>Việc cần làm hôm nay</h2>
+          </div>
+          <div id="today" class="list-body"></div>
+        </div>
+        <div class="card list-card">
+          <div class="card-header">
+            <h2>Cảnh báo quá hạn</h2>
+          </div>
+          <div id="late" class="list-body"></div>
+        </div>
+        <div class="card list-card">
+          <div class="card-header">
+            <h2>Lịch cá nhân sắp tới</h2>
+          </div>
+          <div id="leaves" class="list-body"></div>
+        </div>
+      </div>
+      <div class="grid g2">
+        <div class="card">
+          <div class="card-header">
+            <h2>Tiến độ KPI</h2>
+          </div>
+          <div id="progress"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h2>Sức khỏe tiến độ</h2>
+          </div>
+          <div id="health"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="kpi" class="view">
+      <div class="filter">
+        <div class="search-wrap">
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input id="search" class="search" placeholder="Tìm KPI, sub-task, đầu việc...">
+        </div>
+        <span id="count" class="small filter-count"></span>
+        <div class="filter-actions">
+          <button id="toggleAiDesktop" class="btn ghost btn-ai-toggle" type="button">✦ Gemini AI</button>
+          <button id="kpiAdd" class="btn primary">+ KPI mới</button>
+        </div>
+      </div>
+      <div class="kpi-layout">
+        <div id="tree" class="tree"></div>
+      </div>
+    </section>
+
+    <section id="calendar" class="view">
+      <div class="filter">
+        <span class="small">Lịch công việc, deadline và nghỉ phép.</span>
+        <button id="leaveAdd" class="btn primary">+ Thêm nghỉ phép</button>
+      </div>
+      <div class="cal-layout">
+        <div class="card cal-card">
+          <div class="card-header">
+            <h2 id="calTitle"></h2>
+          </div>
+          <div id="cal" class="cal"></div>
+        </div>
+        <aside class="card cal-sidebar">
+          <div class="card-header">
+            <h2 id="dateTitle">Công việc trong ngày</h2>
+          </div>
+          <div id="dateItems" class="date-items-list"></div>
+          <div class="note-section">
+            <label for="note" class="note-label">Ghi chú nhanh</label>
+            <textarea id="note" class="note" placeholder="Nhập ghi chú cho ngày này..."></textarea>
+            <button id="noteSave" class="btn primary btn-block">Lưu ghi chú</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="report" class="view">
+      <div class="filter">
+        <span id="summary" class="small report-summary"></span>
+        <button id="csv" class="btn ghost">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Xuất CSV
+        </button>
+      </div>
+      <div class="report">
+        <div class="card">
+          <div class="card-header">
+            <h2>Đã hoàn thành</h2>
+          </div>
+          <div id="doneList"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h2>Chưa hoàn thành / cần xử lý</h2>
+          </div>
+          <div id="pendingList"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="urgent" class="view">
+      <div class="filter">
+        <span class="small">Yêu cầu phát sinh được tách riêng khỏi KPI.</span>
+        <button id="urgentAdd" class="btn primary">+ Việc gấp</button>
+      </div>
+      <div id="urgentGrid" class="urgentgrid"></div>
+    </section>
+  </main>
 </div>
-<button class="nav active" data-v="dashboard">⌂ &nbsp; Tổng quan</button>
-<button class="nav" data-v="kpi">◫ &nbsp; KPI công việc</button>
-<button class="nav" data-v="calendar">□ &nbsp; Lịch & nghỉ phép</button>
-<button class="nav" data-v="report">◔ &nbsp; Báo cáo</button>
-<button class="nav" data-v="urgent">! &nbsp; Việc gấp</button>
-<button id="logout" class="nav">Đăng xuất</button><button id="sync" class="sync">↻ Đồng bộ dữ liệu</button>
-</aside>
-<main class="main">
-<header class="head">
-<div>
-<h1 id="title">Tổng quan KPI</h1>
-<p id="sub">Bức tranh công việc trong tháng</p>
+
+<!-- Modal Drawer cho Gemini AI (không chiếm chỗ danh sách KPI) -->
+<div id="chatDrawer" class="chat-drawer" hidden>
+  <div class="chat-backdrop" id="chatBackdrop"></div>
+  <aside class="card chat chat-panel">
+    <div class="chathead">
+      <div class="chat-title">
+        <span class="sparkle-icon">✦</span>
+        <h2>Gemini AI Assistant</h2>
+      </div>
+      <div class="chat-actions">
+        <button id="apiKey" class="mini">Cài API</button>
+        <button id="chatCloseBtn" class="close-icon-btn" type="button" aria-label="Đóng">✕</button>
+      </div>
+    </div>
+    <div id="gstatus" class="small ai-status">Đang kiểm tra...</div>
+    <div id="msgs" class="messages">
+      <div class="bubble ai-bubble">Chọn một sub-task rồi bấm <b>Hỏi Gemini</b>, hoặc nhập yêu cầu trực tiếp. Gemini sẽ gợi ý 4–6 đầu mục hành động để bạn thêm vào checklist.</div>
+    </div>
+    <div class="chips">
+      <button class="chip" data-p="Hãy đề xuất 4–6 đầu mục nhỏ để hoàn thành sub-task này.">Gợi ý checklist</button>
+      <button class="chip" data-p="Hãy lập kế hoạch thực hiện và thứ tự ưu tiên cho công việc này.">Lập kế hoạch</button>
+    </div>
+    <div class="chatbox">
+      <textarea id="chatText" placeholder="Hỏi Gemini về công việc..."></textarea>
+      <button id="chatSend" class="btn primary">Gửi</button>
+    </div>
+  </aside>
 </div>
-<div class="tools">
-<div class="period">
-<button id="prev">‹</button>
-<input id="period" type="month">
-<button id="next">›</button>
-</div>
-<button id="leaveTop" class="btn ghost">+ Nghỉ phép</button>
-<button id="urgentTop" class="btn danger">+ Việc gấp</button>
-<button id="kpiTop" class="btn primary">+ KPI mới</button>
-</div>
-</header>
-<section id="dashboard" class="view active">
-<div id="metrics" class="metrics">
-</div>
-<div class="grid g3">
-<div class="card list">
-<h2>Việc cần làm hôm nay</h2>
-<div id="today">
-</div>
-</div>
-<div class="card list">
-<h2>Cảnh báo quá hạn</h2>
-<div id="late">
-</div>
-</div>
-<div class="card list">
-<h2>Lịch cá nhân sắp tới</h2>
-<div id="leaves">
-</div>
-</div>
-</div>
-<div class="grid g2">
-<div class="card">
-<h2>Tiến độ KPI</h2>
-<div id="progress">
-</div>
-</div>
-<div class="card">
-<h2>Sức khỏe tiến độ</h2>
-<div id="health">
-</div>
-</div>
-</div>
-</section>
-<section id="kpi" class="view">
-<div class="filter">
-<input id="search" class="search" placeholder="Tìm KPI, sub-task, đầu việc...">
-<span id="count" class="small">
-</span>
-<button id="kpiAdd" class="btn primary">+ KPI mới</button>
-</div>
-<div class="kpi-layout">
-<div id="tree" class="tree">
-</div>
-<aside class="card chat">
-<div class="chathead">
-<h2>✦ Gemini Chat</h2>
-<button id="apiKey" class="mini">Cài API</button>
-</div>
-<div id="gstatus" class="small">Đang kiểm tra...</div>
-<div id="msgs" class="messages">
-<div class="bubble">Chọn một sub-task rồi bấm <b>Hỏi Gemini</b>, hoặc mô tả công việc. Gemini sẽ gợi ý 4–6 đầu mục nhỏ để bạn tự thêm vào checklist.</div>
-</div>
-<div class="chips">
-<button class="chip" data-p="Hãy đề xuất 4–6 đầu mục nhỏ để hoàn thành sub-task này.">Gợi ý checklist</button>
-<button class="chip" data-p="Hãy lập kế hoạch thực hiện và thứ tự ưu tiên cho công việc này.">Lập kế hoạch</button>
-</div>
-<div class="chatbox">
-<textarea id="chatText" placeholder="Hỏi Gemini về công việc...">
-</textarea>
-<button id="chatSend" class="btn primary">Gửi</button>
-</div>
-</aside>
-</div>
-</section>
-<section id="calendar" class="view">
-<div class="filter">
-<span class="small">Lịch công việc, deadline và nghỉ phép.</span>
-<button id="leaveAdd" class="btn primary">+ Thêm nghỉ phép</button>
-</div>
-<div class="cal-layout">
-<div class="card">
-<h2 id="calTitle">
-</h2>
-<div id="cal" class="cal">
-</div>
-</div>
-<aside class="card">
-<h2 id="dateTitle">Công việc trong ngày</h2>
-<div id="dateItems">
-</div>
-<textarea id="note" class="note" placeholder="Ghi chú nhanh...">
-</textarea>
-<button id="noteSave" class="btn primary">Lưu ghi chú</button>
-</aside>
-</div>
-</section>
-<section id="report" class="view">
-<div class="filter">
-<span id="summary" class="small">
-</span>
-<button id="csv" class="btn ghost">Xuất CSV</button>
-</div>
-<div class="report">
-<div class="card">
-<h2>Đã hoàn thành</h2>
-<div id="doneList">
-</div>
-</div>
-<div class="card">
-<h2>Chưa hoàn thành / cần xử lý</h2>
-<div id="pendingList">
-</div>
-</div>
-</div>
-</section>
-<section id="urgent" class="view">
-<div class="filter">
-<span class="small">Yêu cầu phát sinh được tách riêng khỏi KPI.</span>
-<button id="urgentAdd" class="btn primary">+ Việc gấp</button>
-</div>
-<div id="urgentGrid" class="urgentgrid">
-</div>
-</section>
-</main>
-</div>
-<div id="modal">
-</div>
-<div id="toast">
-</div><script type="module" src="./app.js"></script>
+
+<div id="modal"></div>
+<div id="toast"></div>
+
+<script type="module" src="./app.js"></script>
 </body>
 </html>
