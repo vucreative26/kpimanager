@@ -57,6 +57,10 @@ import { backend } from './supabase.js';
       }[c];
     });
   }
+  function escSelector(value) {
+    if (window.CSS && CSS.escape) return CSS.escape(value);
+    return String(value).replace(/["\\]/g, '\\$&');
+  }
 
   function toast(message, error) {
     var node = document.createElement('div');
@@ -190,6 +194,21 @@ import { backend } from './supabase.js';
       urgent: urgent
     })[view]();
   }
+  function focusWorkItem(item) {
+    if (!item || !item.kpiId) return;
+    expanded.set(item.kpiId, true);
+    nav('kpi');
+    requestAnimationFrame(function () {
+      var selector = item.checkId ? '[data-check-row="' + escSelector(item.checkId) + '"]' : '[data-sub-row="' + escSelector(item.subId) + '"]';
+      var node = document.querySelector(selector);
+      if (!node) return;
+      node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      node.classList.add('focus-flash');
+      setTimeout(function () {
+        node.classList.remove('focus-flash');
+      }, 1600);
+    });
+  }
   function nav(v) {
     view = v;
     document.querySelectorAll('.view').forEach(function (n) {
@@ -242,8 +261,8 @@ import { backend } from './supabase.js';
       var subs = index.subs.get(k.id) || [];
       return '<details class="kpi" data-kpi="' + esc(k.id) + '" ' + ((expanded.has(k.id) ? expanded.get(k.id) : i === 0) ? 'open' : '') + '><summary><div class="khead"><b>' + esc(k.title) + '</b><small>' + p(k.weight) + '% trọng số</small>' + b(k.progress, true) + controls('KPI', k.id) + '<button type="button" class="mini" data-sub="' + esc(k.id) + '">+ Sub-task</button></div></summary>' + links('KPI', k.id, k.driveLink) + subs.map(function (s) {
         var checks = index.checks.get(s.id) || [];
-        return '<div class="sub"><div class="row"><b class="grow">' + esc(s.title) + '</b><small>' + esc(s.dueDate) + '</small><button class="mini" data-ask="' + esc(s.id) + '">Hỏi Gemini</button>' + controls('SUBTASK', s.id) + '<button class="mini" data-ca="' + esc(s.id) + '">+ Việc</button></div>' + b(s.progress, isdone(s)) + links('SUBTASK', s.id, s.driveLink) + '<div class="checks">' + (checks.length ? checks.map(function (c) {
-          return '<div class="check"><label class="grow"><input type="checkbox" data-check="' + esc(c.id) + '" ' + (isdone(c) ? 'checked' : '') + '> ' + esc(c.title) + '</label><small>' + esc(c.dueDate) + '</small>' + controls('CHECK', c.id) + '</div>' + links('CHECK', c.id);
+        return '<div class="sub" data-sub-row="' + esc(s.id) + '"><div class="row"><b class="grow">' + esc(s.title) + '</b><small>' + esc(s.dueDate) + '</small><button class="mini" data-ask="' + esc(s.id) + '">Hỏi Gemini</button>' + controls('SUBTASK', s.id) + '<button class="mini" data-ca="' + esc(s.id) + '">+ Việc</button></div>' + b(s.progress, isdone(s)) + links('SUBTASK', s.id, s.driveLink) + '<div class="checks">' + (checks.length ? checks.map(function (c) {
+          return '<div class="check" data-check-row="' + esc(c.id) + '"><label class="grow"><input type="checkbox" data-check="' + esc(c.id) + '" ' + (isdone(c) ? 'checked' : '') + '> ' + esc(c.title) + '</label><small>' + esc(c.dueDate) + '</small>' + controls('CHECK', c.id) + '</div>' + links('CHECK', c.id);
         }).join('') : empty('Chưa có đầu việc.')) + '</div></div>';
       }).join('') + '</details>';
     }).join('') : empty('Chưa có KPI phù hợp.');
@@ -257,19 +276,31 @@ import { backend } from './supabase.js';
         index.events.get(date).push(item);
       }
       ss().forEach(function (s) {
+        var kpi = S.kpis.find(function (k) {
+          return k.id === s.kpiId;
+        });
         put(s.dueDate, {
-          title: s.title
+          title: s.title,
+          parentTitle: kpi ? kpi.title : '',
+          kpiId: s.kpiId,
+          subId: s.id
         });
         (index.checks.get(s.id) || []).forEach(function (c) {
           put(c.dueDate, {
             title: c.title,
+            parentTitle: s.title,
+            kpiTitle: kpi ? kpi.title : '',
+            kpiId: s.kpiId,
+            subId: s.id,
+            checkId: c.id,
             check: c
           });
         });
       });
       S.urgentTasks.forEach(function (t) {
         put(t.dueDate, {
-          title: 'Việc gấp: ' + t.title
+          title: 'Việc gấp: ' + t.title,
+          urgentId: t.id
         });
       });
       index.calendarPeriod = P;
@@ -308,7 +339,18 @@ import { backend } from './supabase.js';
     e('dateTitle').textContent = 'Ngày ' + D.split('-').reverse().join('/');
     var items = calendarEvents(D);
     e('dateItems').innerHTML = items.length ? items.map(function (item) {
-      return '<div class="line">' + (item.check ? '<input type="checkbox" data-check="' + esc(item.check.id) + '" ' + (isdone(item.check) ? 'checked' : '') + '>' : '') + '<div class="grow"><b>' + esc(item.title) + '</b>' + (item.leave ? '<span class="small">' + esc(leaveRange(item.leave)) + '</span><span class="small">' + esc(item.leave.note) + '</span>' : '') + '</div>' + (item.leave ? '<button class="mini red" data-dl="' + esc(item.leave.id) + '">Xóa</button>' : '') + '</div>';
+      if (item.leave) {
+        return '<div class="line"><div class="grow"><b>' + esc(item.title) + '</b><span class="small">' + esc(leaveRange(item.leave)) + '</span><span class="small">' + esc(item.leave.note) + '</span></div><button class="mini red" data-dl="' + esc(item.leave.id) + '">Xóa</button></div>';
+      }
+      var parent = item.parentTitle || item.kpiTitle || '';
+      var workMeta = parent ? '<span class="small">' + esc(parent) + '</span>' : '';
+      if (item.urgentId) {
+        return '<div class="line"><button type="button" class="grow calendar-jump" data-eu="' + esc(item.urgentId) + '"><b>' + esc(item.title) + '</b></button></div>';
+      }
+      if (!item.kpiId) {
+        return '<div class="line"><div class="grow"><b>' + esc(item.title) + '</b></div></div>';
+      }
+      return '<div class="line">' + (item.check ? '<input type="checkbox" data-check="' + esc(item.check.id) + '" ' + (isdone(item.check) ? 'checked' : '') + '>' : '') + '<button type="button" class="grow calendar-jump" data-goto-kpi="' + esc(item.kpiId || '') + '" data-goto-sub="' + esc(item.subId || '') + '" data-goto-check="' + esc(item.checkId || '') + '"><b>' + esc(item.title) + '</b>' + workMeta + '</button></div>';
     }).join('') : empty('Không có mục nào');
     var note = S.dailyNotes.find(function (n) {
       return n.date === D;
@@ -489,6 +531,11 @@ commit;
     if (!target) return;
     var d = target.dataset;
     if (d.v) return nav(d.v);
+    if (d.gotoKpi) return focusWorkItem({
+      kpiId: d.gotoKpi,
+      subId: d.gotoSub,
+      checkId: d.gotoCheck
+    });
     if (target.closest('summary')) event.preventDefault();
     if (d.action) {
       var id = d.id,

@@ -536,6 +536,30 @@ a:hover {
   background-color: var(--bg-subtle);
 }
 
+.calendar-jump {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.calendar-jump:hover b {
+  color: var(--primary);
+}
+
+.focus-flash {
+  animation: focusFlash 1.6s ease;
+}
+
+@keyframes focusFlash {
+  0%, 100% { box-shadow: none; }
+  18%, 78% { box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.24); background: #eef2ff; }
+}
+
 .grow {
   flex: 1;
   min-width: 0;
@@ -842,6 +866,7 @@ a:hover {
   font-weight: 700;
   color: var(--ink);
   line-height: 1.4;
+  min-width: 180px;
 }
 
 .sub > .row > small {
@@ -889,6 +914,8 @@ a:hover {
   cursor: pointer;
   font-weight: 500;
   color: var(--ink);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .check input[type="checkbox"] {
@@ -1779,10 +1806,36 @@ a:hover {
     margin: 0 8px 10px;
     padding: 10px 12px;
   }
+
+  .sub > .row {
+    align-items: flex-start;
+  }
+
+  .sub > .row > b.grow {
+    flex: 1 0 100%;
+    min-width: 0;
+  }
+
+  .sub > .row > small {
+    order: 2;
+  }
+
+  .sub > .row > .controls,
+  .sub > .row > button {
+    order: 3;
+  }
+
+  .check {
+    align-items: flex-start;
+  }
   
   .check > .grow {
     flex: 1 0 100%;
     line-height: 1.4;
+  }
+
+  .check small {
+    margin-left: 26px;
   }
   
   .urgentgrid {
